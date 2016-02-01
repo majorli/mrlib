@@ -7,11 +7,6 @@
 #define MR_COMMON_H
 
 /**
- * 字符串类型
- */
-typedef char *String;
-
-/**
  * 字符串结尾符
  */
 #define EOS '\0'
@@ -32,23 +27,44 @@ typedef char *String;
 #define IS_STBRKS(ch) ((ch)=='.'||(ch)==';'||(ch)=='\n'||(ch)=='?'||(ch)=='!')
 
 /**
- * utf8编码字符串转为gbk编码字符串
+ * 获取字符编码由gbk转换为utf8时目标字符串的可能长度，包括结尾的'\0'字符
  */
-extern String u2g(const String str);					// 
+#define LEN_TO_UTF8(len) ((len)+((len)>>1)+1)
 
 /**
- * gbk编码字符串转为utf8编码字符串
+ * 获取字符编码由utf8转换为gbk时目标字符串的可能长度，包括结尾的'\0'字符
  */
-extern String g2u(const String str);					//
+#define LEN_TO_GBK(len) ((len)+1)
 
 /**
- * 将字符串中的'\033', '\n', '\t'字符和空格符' '转换为控制字符串"\\E", "\\n", "\\t", "\\s"
+ * 常用中文字符集编码名称字符串的宏
  */
-extern String c2s(const String str);					//
+#define GBK "GBK"
+#define GB18030 "GB18030"
+#define BIG5 "BIG5"
+#define UTF8 "UTF-8"
+#define UTF16 "UTF-16"
 
 /**
- * 将字符串中的控制字符串"\\E", "\\n", "\\t", "\\s"转换为实际字符'\033', '\n', '\t'和空格符' '
+ * 转换字符串的字符集编码
+ * from_charset: 原字符集
+ * to_charset: 目标字符集
+ * inbuf: 原字符串
+ * inlen: 原字符串要转换字符集的长度
+ * outbuf: 目标字符串，必须有足够的长度
+ * outlen: 目标字符串最大长度
+ * 转换失败返回-1，成功返回0
  */
-extern String s2c(const String str);					//
+extern int charset_conv(char *from_charset, char *to_charset, char *inbuf, size_t inlen, char *outbuf, size_t outlen);
+
+/**
+ * 将字符串中的字符'\033', '\a', '\b', '\f', '\n', '\r', '\t', '\v'转换为字符串"\\E", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v"
+ */
+extern char *c2s(char *dest, const char *src);
+
+/**
+ * 将字符串中的字符串"\\E", "\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v"转换为字符'\033', '\a', '\b', '\f', '\n', '\r', '\t', '\v'
+ */
+extern char *s2c(char *dest, const char *src);
 
 #endif
