@@ -25,7 +25,7 @@ int charset_conv(char *from_charset, char *to_charset, char *inbuf, size_t inlen
 	char **pout = &outbuf;
 
 	cd = iconv_open(to_charset, from_charset);
-	if (cd == -1)
+	if (cd == (iconv_t)(-1))
 		return -1;
 	memset(outbuf, 0, outlen);
 	if (iconv(cd, pin, &inlen, pout, &outlen) == -1)

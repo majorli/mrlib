@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用类的工具函数、常量及宏函数，主要用于处理各类字符串操作
  *
- * 李斌，2016/1/28
+ * Version 1.0.0, 李斌，2016/1/28
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
