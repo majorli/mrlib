@@ -15,6 +15,7 @@
 *.exe
 *.out
 *.app
+bin
 
 # Vim tags
 tags
