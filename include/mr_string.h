@@ -1,35 +1,28 @@
 /**
  * "mr_string.h"，字符串工具函数库，参照Apache的Java语言字符串工具库StringUtil设计开发。
  *
- * mr_string库支持UTF-8和GB18030两种字符集，函数参数charset为1表示GB18030编码，为0或其他任何值表示UTF-8编码，也可以使用mr_common.h中的预定义宏。
+ * mr_string库默认使用UTF-8字符集，并提供字符串GB18030字符集与UTF-8字符集相互转换的函数，以便支持Windows平台下软件的需要。
  * 为区别C语言的char类型和实际文字的字符，引入“字”的概念，代码中用Char表示，但不设对应的数据类型。
  * C语言的字符串长度，即strlen()函数返回的长度，本库中成为字节长度，用LOB表示。另外引入“字长”的概念，用LOC表示，指字符串中实际字的个数。
  *
  * 为确保内存安全，所有函数均不会自行分配内存空间，也不会自行释放已分配的内存空间。
- * 因此在调用库函数时，所有char *dest参数或其他需要传入的用以填写字符串的指针参数需由客户端在调用前完成内存分配，使用完毕后由客户端负责释放内存。
- * 
- * 所有作为函数返回值的字符串指针，均与传入的参数相同。例如abbreviate()的返回值，与调用时传入的char *dest参数相同，这是为了实现客户端链式调用库函数。
- * 上述情况下，除非传入的参数即为NULL指针，否则库函数将确保不会返回NULL，而是返回空字符串，即长度为零的字符串来代替NULL指针。
+ * 调用库函数时，所有用于填写字符串并返回的char*参数均必须由调用者在调用前自行分配内存，并在使用完毕后自行释放。
+ * 可以使用宏函数MAX_UTF8_LOB(loc)或MAX_CHN_LOB(loc)来获取UTF-8字符串LOC对应的安全LOB值。
  *
- * Version 0.0.1, 李斌，2016/02/01
+ * Version 0.0.2, 李斌，2016/02/04
  */
 #ifndef MR_STRING_H
 #define MR_STRING_H
 
 /**
- * UTF-8/GB18030编码字符串字符数对应的安全字节长度，即字符数的4倍
+ * UTF-8编码字符串LOC对应的安全LOB，即LOC的4倍
  */
-#define MAX_BYTES(chars) ((chars) + (chars) + (chars) + (chars))
+#define MAX_UTF8_LOB(chars) ((chars) + (chars) + (chars) + (chars))
 
 /**
- * UTF-8编码下纯汉字字符串的字符数对应的字节长度
+ * UTF-8编码纯汉字字符串LOC对应的安全LOB
  */
-#define UTF8_CHN_BYTES(chars) ((chars) + (chars) + (chars))
-
-/**
- * GB18030编码下纯汉字字符串的字符数对应的字节长度
- */
-#define GB18030_CHN_BYTES(chars) ((chars) + (chars))
+#define MAX_CHN_LOB(chars) ((chars) + (chars) + (chars))
 
 /**
  * UTF-8字符串转GB18030时，目标字符串缓冲区的安全字节长度，含结尾的0字符
@@ -82,40 +75,32 @@ extern char *c2s(char *dest, const char *src);
 extern char *s2c(char *dest, const char *src);
 
 /**
- * 向后扫描一个字，支持UTF-8和GB18030两种字符集。扫描时按字符集码段规则判断是否有效的字，无效字包括不在码段规定范围内的字节或不完整的多字节字
+ * 向后扫描一个字，支持UTF-8字符集
  *
  * UTF-8字符集下，ASCII字符的长度为1字节，扩展字符的长度为2字节，汉字的长度为3字节，CJK扩展字符的长度为4字节，码段如下：
  * 	ASCII		扩展字符	汉字			CJK扩展字符
  *	00-7F		C0-DF|80-BF	E0-EF|(80-BF)*2		F0-F7|(80-BF)*3
- * GB18030字符集下，ASCII字符的长度为1字节，汉字的长度为2字节，少数民族语言字符的长度为4字节，码段如下：
- * 	ASCII		汉字(一)	汉字(二)	少数民族语言字符
- * 	00-7F		81-FE|40-7E	81-FE|80-FE	81-FE|30-39|81-FE|30-39
  *
  * str:		被扫描的字符串
- * startp:	扫描的起点
- * charset:	字符集，1表示GB18030，0或其他值为UTF-8
+ * startp:	扫描的起点，str <= startp < str + strlen(str)
  * 
  * 返回:	如果读到有效的字，返回字的字节长度；如果读到的字无效，返回无效部分的字节长度的负值；如果已经抵达字符串末尾，返回0
  */
-extern int scanChar(const char *str, const char *startp, int charset);
+extern int scanChar(const char *str, const char *startp);
 
 /**
- * 向前扫描一个字，支持UTF-8和GB18030两种字符集。扫描时按字符集码段规则判断是否有效的字，无效字包括不在码段规定范围内的字节或不完整的多字节字
+ * 向前扫描一个字，支持UTF-8字符集
  *
  * UTF-8字符集下，ASCII字符的长度为1字节，扩展字符的长度为2字节，汉字的长度为3字节，CJK扩展字符的长度为4字节，码段如下：
  * 	ASCII		扩展字符	汉字			CJK扩展字符
  *	00-7F		C0-DF|80-BF	E0-EF|(80-BF)*2		F0-F7|(80-BF)*3
- * GB18030字符集下，ASCII字符的长度为1字节，汉字的长度为2字节，少数民族语言字符的长度为4字节，码段如下：
- * 	ASCII		汉字(一)	汉字(二)	少数民族语言字符
- * 	00-7F		81-FE|40-7E	81-FE|80-FE	81-FE|30-39|81-FE|30-39
  *
  * str:		被扫描的字符串
- * startp:	扫描的起点
- * charset:	字符集，1表示GB18030，0或其他值为UTF-8
+ * startp:	扫描的起点，str < startp <= str + strlen(str)
  * 
  * 返回:	如果读到有效的字，返回字的字节长度；如果读到的字无效，返回无效部分的字节长度的负值；如果已经抵达字符串末尾，返回0
  */
-extern int scanbChar(const char *str, const char *startp, int charset);
+extern int scanbChar(const char *str, const char *startp);
 
 /**
  * 缩写字符串到最大长度范围内，超出长度部分用英文省略号(...)省略
