@@ -13,12 +13,12 @@ int scanbChar(const char *str, const char *startp);
 size_t strlen_c(const char *s);
 int strcmp_c(const char *s1, const char *s2);
 int strncmp_c(const char *s1, const char *s2, size_t n);
-char *substr_b(const char *src, char *dest, size_t start, size_t lob);
-char *substr_c(const char *src, char *dest, size_t start, size_t loc);
-char *left_b(const char *src, char *dest, size_t n);
-char *left_c(const char *src, char *dest, size_t n);
-char *right_b(const char *src, char *dest, size_t n);
-char *right_c(const char *src, char *dest, size_t n);
+char *substr_b(char *dest, const char *src, size_t start, size_t lob);
+char *substr_c(char *dest, const char *src, size_t start, size_t loc);
+char *left_b(char *dest, const char *src, size_t n);
+char *left_c(char *dest, const char *src, size_t n);
+char *right_b(char *dest, const char *src, size_t n);
+char *right_c(char *dest, const char *src, size_t n);
 
 /**
  * UTF-8字符串转换为GB18030字符串
@@ -344,80 +344,94 @@ int strncmp_c(const char *s1, const char *s2, size_t n)
 
 /**
  * 以字节为单位获取字符串的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * start:	子串起始字节位置(LOB)
  * lob:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *substr_b(const char *src, char *dest, size_t start, size_t lob)
+char *substr_b(char *dest, const char *src, size_t start, size_t lob)
 {
-	return NULL;
+	char *ret = dest;
+	if (dest != NULL) {					// 目标地址有效，开始进行复制
+		memset(dest, 0, lob + 1);			// 标准库的strncpy()函数不保证添加null字符，所以先在目标地址中填充null字符
+		size_t slen;					// slen: 原字符串LOB
+		if (lob > 0 && src != NULL && start < (slen = strlen(src))) {
+			// 子串长度大于0，原字符串指针有效并且起点在原字符串内，开始子串提取，否则不做任何操作，返回空字符串
+			size_t len = lob;			// len:  子字符串LOB
+			const char *sp = src + start;		// sp:   复制的起点
+			if (slen < start + lob) {
+				len = slen - start;		// 起始点加上子串长度超过原字符串的总长度，修正为提取到原字符串结尾
+			}
+			strncpy(dest, sp, len);			// 开始提取子串
+		}
+	}
+	return ret;
 }
 
 /**
  * 以字为单位获取字符串的子串，无效字节将被跳过
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * start:	子串起始字位置(LOC)
  * lob:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *substr_c(const char *src, char *dest, size_t start, size_t loc)
+char *substr_c(char *dest, const char *src, size_t start, size_t loc)
 {
 	return NULL;
 }
 
 /**
  * 以字节为单位，获取字符串前n个字节的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *left_b(const char *src, char *dest, size_t n)
+char *left_b(char *dest, const char *src, size_t n)
 {
 	return NULL;
 }
 
 /**
  * 以字为单位，获取字符串前n个字的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *left_c(const char *src, char *dest, size_t n)
+char *left_c(char *dest, const char *src, size_t n)
 {
 	return NULL;
 }
 
 /**
  * 以字节为单位，获取字符串尾部n个字节的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *right_b(const char *src, char *dest, size_t n)
+char *right_b(char *dest, const char *src, size_t n)
 {
 	return NULL;
 }
 
 /**
  * 以字为单位，获取字符串前n个字的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-char *right_c(const char *src, char *dest, size_t n)
+char *right_c(char *dest, const char *src, size_t n)
 {
 	return NULL;
 }

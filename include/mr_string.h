@@ -133,64 +133,64 @@ extern int strncmp_c(const char *s1, const char *s2, size_t n);
 
 /**
  * 以字节为单位获取字符串的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * start:	子串起始字节位置(LOB)
  * lob:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *substr_b(const char *src, char *dest, size_t start, size_t lob);
+extern char *substr_b(char *dest, const char *src, size_t start, size_t lob);
 
 /**
  * 以字为单位获取字符串的子串，无效字节将被跳过
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * start:	子串起始字位置(LOC)
  * lob:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *substr_c(const char *src, char *dest, size_t start, size_t loc);
+extern char *substr_c(char *dest, const char *src, size_t start, size_t loc);
 
 /**
  * 以字节为单位，获取字符串前n个字节的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *left_b(const char *src, char *dest, size_t n);
+extern char *left_b(char *dest, const char *src, size_t n);
 
 /**
  * 以字为单位，获取字符串前n个字的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *left_c(const char *src, char *dest, size_t n);
+extern char *left_c(char *dest, const char *src, size_t n);
 
 /**
  * 以字节为单位，获取字符串尾部n个字节的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字节长度(LOB)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *right_b(const char *src, char *dest, size_t n);
+extern char *right_b(char *dest, const char *src, size_t n);
 
 /**
  * 以字为单位，获取字符串前n个字的子串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串，为NULL时子串必然为空字符串
- * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
  * n:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
-extern char *right_c(const char *src, char *dest, size_t n);
+extern char *right_c(char *dest, const char *src, size_t n);
 
 #endif
