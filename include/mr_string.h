@@ -1,9 +1,11 @@
 /**
- * "mr_string.h"，字符串工具函数库，参照Apache的Java语言字符串工具库StringUtil设计开发。
+ * "mr_string.h"，字符串工具函数库
  *
  * mr_string库默认使用UTF-8字符集，并提供字符串GB18030字符集与UTF-8字符集相互转换的函数，以便支持Windows平台下软件的需要。
- * 为区别C语言的char类型和实际文字的字符，引入“字”的概念，代码中用Char表示，但不设对应的数据类型。
+ * 为区别C语言的char类型和多字节编码方式下实际文字的字符，引入“字”的概念，代码中用Char表示，但不设对应的数据类型。
  * C语言的字符串长度，即strlen()函数返回的长度，本库中成为字节长度，用LOB表示。另外引入“字长”的概念，用LOC表示，指字符串中实际字的个数。
+ * 库函数中同一函数有针对两种字符计数方式的不同版本的，在函数名中用后缀"_b", "_c"来进行区分，如"substr_b()"和"substr_c()"。
+ * 本库提供部分标准库函数的LOC计数方式版本，在标准库函数名后添加后缀"_b"表示，如"strlen_b()"。
  *
  * 为确保内存安全，所有函数均不会自行分配内存空间，也不会自行释放已分配的内存空间。
  * 调用库函数时，所有用于填写字符串并返回的char*参数均必须由调用者在调用前自行分配内存，并在使用完毕后自行释放。
@@ -103,18 +105,92 @@ extern int scanChar(const char *str, const char *startp);
 extern int scanbChar(const char *str, const char *startp);
 
 /**
- * 缩写字符串到最大长度范围内，超出长度部分用英文省略号(...)省略
- * dest:	存放缩写后的目标字符串的首地址，该地址必须有足够的空间，即max_len+1个字符的位置
- * src:		源字符串
- * max_len:	缩写后字符串的最大长度
+ * 获取UTF-8字符串的字数(LOC)，无效字节将被忽略不计
+ * s:		目标字符串指针
  *
- * 如果src为NULL，则设置dest为空字符串并返回
- * 如果src的长度小于max_len，则不做任何改变地复制到dest中并返回
- * 如果src的长度大于max_len，则缩写为(substring(str, 0, max-3) + "...")的形式，复制到dest中并返回
- * 如果max_len < 4，且src的长度大于max_len，则dest改写为空字符串并返回
- *
- * 除非dest参数为NULL，否则无论何种情况，本函数确保不会返回NULL指针，也不会修改dest值
-extern char *abbreviate(char *dest, const char *src, size_t max_len);
+ * 返回:	字符串s中包含的有效字数，无效字节忽略不计。参数s为NULL时返回0
  */
+extern size_t strlen_c(const char *s);
+
+/**
+ * 按中文拼音顺序比较字符串，传入NULL指针视为空字符串
+ * s1:		待比较的字符串指针一
+ * s2:		待比较的字符串指针二
+ *
+ * 返回:	s1 == s2时返回0，s1 > s2时返回一个正数，s1 < s2时返回一个负数
+ */
+extern int strcmp_c(const char *s1, const char *s2);
+
+/**
+ * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为空字符串
+ * s1:		待比较的字符串指针一
+ * s2:		待比较的字符串指针二
+ * n:		用以比较的字数(LOC)
+ *
+ * 返回:	s1 == s2时返回0，s1 > s2时返回一个正数，s1 < s2时返回一个负数
+ */
+extern int strncmp_c(const char *s1, const char *s2, size_t n);
+
+/**
+ * 以字节为单位获取字符串的子串
+ * src:		原字符串指针，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * start:	子串起始字节位置(LOB)
+ * lob:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *substr_b(const char *src, char *dest, size_t start, size_t lob);
+
+/**
+ * 以字为单位获取字符串的子串，无效字节将被跳过
+ * src:		原字符串指针，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * start:	子串起始字位置(LOC)
+ * lob:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *substr_c(const char *src, char *dest, size_t start, size_t loc);
+
+/**
+ * 以字节为单位，获取字符串前n个字节的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *left_b(const char *src, char *dest, size_t n);
+
+/**
+ * 以字为单位，获取字符串前n个字的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *left_c(const char *src, char *dest, size_t n);
+
+/**
+ * 以字节为单位，获取字符串尾部n个字节的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *right_b(const char *src, char *dest, size_t n);
+
+/**
+ * 以字为单位，获取字符串前n个字的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+extern char *right_c(const char *src, char *dest, size_t n);
 
 #endif

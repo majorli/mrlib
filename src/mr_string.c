@@ -10,6 +10,15 @@ char *c2s(char *dest, const char *src);
 char *s2c(char *dest, const char *src);
 int scanChar(const char *str, const char *startp);
 int scanbChar(const char *str, const char *startp);
+size_t strlen_c(const char *s);
+int strcmp_c(const char *s1, const char *s2);
+int strncmp_c(const char *s1, const char *s2, size_t n);
+char *substr_b(const char *src, char *dest, size_t start, size_t lob);
+char *substr_c(const char *src, char *dest, size_t start, size_t loc);
+char *left_b(const char *src, char *dest, size_t n);
+char *left_c(const char *src, char *dest, size_t n);
+char *right_b(const char *src, char *dest, size_t n);
+char *right_c(const char *src, char *dest, size_t n);
 
 /**
  * UTF-8字符串转换为GB18030字符串
@@ -295,4 +304,120 @@ int scanbChar(const char *str, const char *startp)
 		}
 	}
 	return ret;
+}
+
+/**
+ * 获取UTF-8字符串的字数(LOC)，无效字节将被忽略不计
+ * s:		目标字符串指针
+ *
+ * 返回:	字符串s中包含的有效字数，无效字节忽略不计。参数s为NULL时返回0
+ */
+size_t strlen_c(const char *s)
+{
+	return 0;
+}
+
+/**
+ * 按中文拼音顺序比较字符串，传入NULL指针视为空字符串
+ * s1:		待比较的字符串指针一
+ * s2:		待比较的字符串指针二
+ *
+ * 返回:	s1 == s2时返回0，s1 > s2时返回一个正数，s1 < s2时返回一个负数
+ */
+int strcmp_c(const char *s1, const char *s2)
+{
+	return 0;
+}
+
+/**
+ * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为空字符串
+ * s1:		待比较的字符串指针一
+ * s2:		待比较的字符串指针二
+ * n:		用以比较的字数(LOC)
+ *
+ * 返回:	s1 == s2时返回0，s1 > s2时返回一个正数，s1 < s2时返回一个负数
+ */
+int strncmp_c(const char *s1, const char *s2, size_t n)
+{
+	return 0;
+}
+
+/**
+ * 以字节为单位获取字符串的子串
+ * src:		原字符串指针，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * start:	子串起始字节位置(LOB)
+ * lob:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *substr_b(const char *src, char *dest, size_t start, size_t lob)
+{
+	return NULL;
+}
+
+/**
+ * 以字为单位获取字符串的子串，无效字节将被跳过
+ * src:		原字符串指针，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * start:	子串起始字位置(LOC)
+ * lob:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *substr_c(const char *src, char *dest, size_t start, size_t loc)
+{
+	return NULL;
+}
+
+/**
+ * 以字节为单位，获取字符串前n个字节的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *left_b(const char *src, char *dest, size_t n)
+{
+	return NULL;
+}
+
+/**
+ * 以字为单位，获取字符串前n个字的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *left_c(const char *src, char *dest, size_t n)
+{
+	return NULL;
+}
+
+/**
+ * 以字节为单位，获取字符串尾部n个字节的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字节长度(LOB)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *right_b(const char *src, char *dest, size_t n)
+{
+	return NULL;
+}
+
+/**
+ * 以字为单位，获取字符串前n个字的子串
+ * src:		原字符串，为NULL时子串必然为空字符串
+ * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL
+ * n:		子串字长度(LOC)
+ *
+ * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
+ */
+char *right_c(const char *src, char *dest, size_t n)
+{
+	return NULL;
 }
