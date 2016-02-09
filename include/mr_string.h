@@ -113,7 +113,7 @@ extern int scanbChar(const char *str, const char *startp);
 extern size_t strlen_c(const char *s);
 
 /**
- * 按中文拼音顺序比较字符串，传入NULL指针视为空字符串
+ * 按中文拼音顺序比较字符串，传入NULL指针视为最小的字符串，比空字符串更小，NULL比任何非NULL字符串小1
  * s1:		待比较的字符串指针一
  * s2:		待比较的字符串指针二
  *
@@ -122,7 +122,7 @@ extern size_t strlen_c(const char *s);
 extern int strcmp_c(const char *s1, const char *s2);
 
 /**
- * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为空字符串
+ * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为最小的字符串，比空字符串更小，NULL比任何非NULL字符串小1
  * s1:		待比较的字符串指针一
  * s2:		待比较的字符串指针二
  * n:		用以比较的字数(LOC)
@@ -147,7 +147,7 @@ extern char *substr_b(char *dest, const char *src, size_t start, size_t lob);
  * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
  * start:	子串起始字位置(LOC)
- * lob:		子串字长度(LOC)
+ * loc:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */

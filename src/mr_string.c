@@ -1,5 +1,6 @@
 #include <iconv.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "mr_common.h"
 #include "mr_string.h"
@@ -314,11 +315,24 @@ int scanbChar(const char *str, const char *startp)
  */
 size_t strlen_c(const char *s)
 {
-	return 0;
+	size_t ret = 0;
+	if (s != NULL && strlen(s) > 0) {
+		int step = 0;
+		const char *p = s;
+		while ((step = scanChar(s, p)) != 0) {
+			if (step < 0) {
+				p -= step;
+			} else {
+				p += step;
+				ret++;
+			}
+		}
+	}
+	return ret;
 }
 
 /**
- * 按中文拼音顺序比较字符串，传入NULL指针视为空字符串
+ * 按中文拼音顺序比较字符串，传入NULL指针视为最小的字符串，比空字符串更小，NULL比任何非NULL字符串小1
  * s1:		待比较的字符串指针一
  * s2:		待比较的字符串指针二
  *
@@ -326,11 +340,37 @@ size_t strlen_c(const char *s)
  */
 int strcmp_c(const char *s1, const char *s2)
 {
-	return 0;
+	int ret = 0;
+	if (s1 == NULL) {
+		if (s2 == NULL) {
+			ret = 0;
+		} else {
+			ret = -1;
+		}
+	} else {
+		if (s2 == NULL) {
+			ret = 1;
+		} else {
+			size_t slen1 = strlen(s1);
+			size_t slen2 = strlen(s2);
+			size_t dlen1 = UTF2GB_LEN(slen1);
+			size_t dlen2 = UTF2GB_LEN(slen2);
+			char *d1 = (char *)malloc(dlen1*sizeof(char));
+			char *d2 = (char *)malloc(dlen2*sizeof(char));
+			if (utf2gb((char *)s1, slen1, d1, dlen1) == 0 && utf2gb((char *)s2, slen2, d2, dlen2) ==0) {
+				ret = strcmp(d1, d2);	// 转换为GB18030编码进行中文顺序比较
+			} else {
+				ret = 0;		// 有字符串转换为GB18030失败，无法比较中文顺序，视为相等
+			}
+			free(d1);
+			free(d2);
+		}
+	}
+	return ret;
 }
 
 /**
- * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为空字符串
+ * 按中文拼音顺序比较字符串的前n个字，传入NULL指针视为最小的字符串，比空字符串更小，NULL比任何非NULL字符串小1
  * s1:		待比较的字符串指针一
  * s2:		待比较的字符串指针二
  * n:		用以比较的字数(LOC)
@@ -339,7 +379,42 @@ int strcmp_c(const char *s1, const char *s2)
  */
 int strncmp_c(const char *s1, const char *s2, size_t n)
 {
-	return 0;
+	int ret = 0;
+	if (n > 0) {
+		if (s1 == NULL) {
+			if (s2 == NULL) {
+				ret = 0;
+			} else {
+				ret = -1;
+			}
+		} else {
+			if (s2 == NULL) {
+				ret = 1;
+			} else {
+				size_t lob = MAX_UTF8_LOB(n) + 1;
+				char *sn1 = (char *)malloc(lob * sizeof(char));
+				char *sn2 = (char *)malloc(lob * sizeof(char));
+				sn1 = substr_c(sn1, s1, 0, n);
+				sn2 = substr_c(sn2, s2, 0, n);
+				size_t slen1 = strlen(sn1);
+				size_t slen2 = strlen(sn2);
+				size_t dlen1 = UTF2GB_LEN(slen1);
+				size_t dlen2 = UTF2GB_LEN(slen2);
+				char *d1 = (char *)malloc(dlen1*sizeof(char));
+				char *d2 = (char *)malloc(dlen2*sizeof(char));
+				if (utf2gb((char *)sn1, slen1, d1, dlen1) == 0 && utf2gb((char *)sn2, slen2, d2, dlen2) ==0) {
+					ret = strcmp(d1, d2);	// 转换为GB18030编码进行中文顺序比较
+				} else {
+					ret = 0;		// 有字符串转换为GB18030失败，无法比较中文顺序，视为相等
+				}
+				free(d1);
+				free(d2);
+				free(sn1);
+				free(sn2);
+			}
+		}
+	}
+	return ret;
 }
 
 /**
@@ -375,13 +450,45 @@ char *substr_b(char *dest, const char *src, size_t start, size_t lob)
  * dest:	用于存放子串的目标字符串指针，为NULL时返回NULL，dest必须确保有足够的长度，否则可能发生任何意外的情况
  * src:		原字符串指针，为NULL时子串必然为空字符串
  * start:	子串起始字位置(LOC)
- * lob:		子串字长度(LOC)
+ * loc:		子串字长度(LOC)
  *
  * 返回:	子串的起始地址，与传入的参数dest相同。如传入的参数dest为NULL，则返回NULL，否则确保不会返回NULL
  */
 char *substr_c(char *dest, const char *src, size_t start, size_t loc)
 {
-	return NULL;
+	char *ret = dest;
+	if (dest != NULL) {					// 目标地址有效，开始进行复制
+		char *dp = dest;
+		const char *sp = src;
+		size_t slen;
+		if (loc > 0 && src != NULL && (slen = strlen(src)) > 0) {	// 子串长度大于0，原字符串指针有效并且长度大于0，可以进行复制
+			size_t cc = 0;
+			int step;
+			while (cc < start && (step = scanChar(src, sp)) != 0) {	// 跳过start之前的有效字，抵达start或抵达字符串结尾
+				if (step < 0) {
+					sp -= step;
+				} else {
+					sp += step;
+					cc++;
+				}
+			}
+			if (sp < src + slen) {			// start小于字符串的LOC，可以复制子串
+				cc = 0;
+				while (cc < loc && (step = scanChar(src, sp)) != 0) {	// 开始读取从start开始的loc个字，或者到字符串结尾
+					if (step < 0) {
+						sp -= step;
+					} else {
+						while (step-- > 0) {
+							*(dp++) = *(sp++);
+						}
+						cc++;
+					}
+				}
+			}
+		}
+		*dp = EOS;					// 添加最后的NULL字符
+	}
+	return ret;
 }
 
 /**
@@ -394,7 +501,7 @@ char *substr_c(char *dest, const char *src, size_t start, size_t loc)
  */
 char *left_b(char *dest, const char *src, size_t n)
 {
-	return NULL;
+	return substr_b(dest, src, 0, n);
 }
 
 /**
@@ -407,7 +514,7 @@ char *left_b(char *dest, const char *src, size_t n)
  */
 char *left_c(char *dest, const char *src, size_t n)
 {
-	return NULL;
+	return substr_c(dest, src, 0, n);
 }
 
 /**
@@ -420,7 +527,15 @@ char *left_c(char *dest, const char *src, size_t n)
  */
 char *right_b(char *dest, const char *src, size_t n)
 {
-	return NULL;
+	char *ret = dest;
+	if (dest != NULL) {
+		size_t slen;
+		if (src != NULL && n > 0 && (slen = strlen(src)) > 0) {
+			size_t start = n < slen ? slen - n : 0;
+			ret = substr_b(dest, src, start, n);
+		}
+	}
+	return ret;
 }
 
 /**
@@ -433,5 +548,13 @@ char *right_b(char *dest, const char *src, size_t n)
  */
 char *right_c(char *dest, const char *src, size_t n)
 {
-	return NULL;
+	char *ret = dest;
+	if (dest != NULL) {
+		size_t sloc;
+		if (src != NULL && n > 0 && (sloc = strlen_c(src)) > 0) {
+			size_t start = n < sloc ? sloc - n : 0;
+			ret = substr_c(dest, src, start, n);
+		}
+	}
+	return ret;
 }
