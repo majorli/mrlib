@@ -1,6 +1,7 @@
 #include <iconv.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "mr_common.h"
 #include "mr_string.h"
@@ -20,6 +21,11 @@ char *left_b(char *dest, const char *src, size_t n);
 char *left_c(char *dest, const char *src, size_t n);
 char *right_b(char *dest, const char *src, size_t n);
 char *right_c(char *dest, const char *src, size_t n);
+char *ltrim(char *src);
+char *rtrim(char *src);
+char *trim(char *src);
+int is_empty(const char *str);
+int is_blank(const char *str);
 
 /**
  * UTF-8字符串转换为GB18030字符串
@@ -558,3 +564,86 @@ char *right_c(char *dest, const char *src, size_t n)
 	}
 	return ret;
 }
+
+/**
+ * 移除字符串头部的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除头部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ */
+char *ltrim(char *src)
+{
+	if (src != NULL) {
+		char *p = src;
+		while (*p != EOS && isspace(*p)) {
+			p++;
+		}
+		char *s = src;
+		while ((*(s++) = *(p++)) != EOS);
+	}
+	return src;
+}
+
+/**
+ * 移除字符串尾部的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除尾部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ */
+char *rtrim(char *src)
+{
+	if (src != NULL) {
+		char *p = src + strlen(src) - 1;
+		while (p >= src && isspace(*p)) {
+			p--;
+		}
+		*(++p) = EOS;
+	}
+	return src;
+}
+
+/**
+ * 移除字符串头尾的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除头尾空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ */
+char *trim(char *src)
+{
+	return ltrim(rtrim(src));
+}
+
+/**
+ * 判断一个字符串是否为空，即指针为NULL或长度为0
+ * str:		待判断的字符串
+ *
+ * 返回:	如果str == NULL或strlen(str) == 0则返回1，否则返回0
+ */
+int is_empty(const char *str)
+{
+	return str == NULL || strlen(str) == 0;
+}
+
+/**
+ * 判断一个字符串是否为空白，即指针为NULL或长度为0或全部由空白符组成
+ * str:		待判断的字符串
+ *
+ * 返回:	如果str == NULL或strlen(str) == 0或全部由空白符组成则返回1，否则返回0
+ */
+int is_blank(const char *str)
+{
+	int ret = 1;
+	if (str != NULL) {
+		const char *p = str;
+		while (*p) {
+			if (isspace(*p)) {
+				p++;
+			} else {
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+

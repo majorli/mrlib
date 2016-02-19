@@ -193,4 +193,44 @@ extern char *right_b(char *dest, const char *src, size_t n);
  */
 extern char *right_c(char *dest, const char *src, size_t n);
 
+/**
+ * 移除字符串头部的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
+ */
+extern char *ltrim(char *src);
+
+/**
+ * 移除字符串尾部的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除尾部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ */
+extern char *rtrim(char *src);
+
+/**
+ * 移除字符串头尾的空白字符
+ * src:		原字符串，不能为字符串字面量
+ *
+ * 返回:	移除头尾空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ */
+extern char *trim(char *src);
+
+/**
+ * 判断一个字符串是否为空，即指针为NULL或长度为0
+ * str:		待判断的字符串
+ *
+ * 返回:	如果str == NULL或strlen(str) == 0则返回1，否则返回0
+ */
+extern int is_empty(const char *str);
+
+/**
+ * 判断一个字符串是否为空白，即指针为NULL或长度为0或全部由空白符组成
+ * str:		待判断的字符串
+ *
+ * 返回:	如果str == NULL或strlen(str) == 0或全部由空白符组成则返回1，否则返回0
+ */
+extern int is_blank(const char *str);
+
 #endif
