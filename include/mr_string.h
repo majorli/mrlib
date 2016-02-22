@@ -11,7 +11,7 @@
  * 调用库函数时，所有用于填写字符串并返回的char*参数均必须由调用者在调用前自行分配内存，并在使用完毕后自行释放。
  * 可以使用宏函数MAX_UTF8_LOB(loc)或MAX_CHN_LOB(loc)来获取UTF-8字符串LOC对应的安全LOB值。
  *
- * Version 0.0.2, 李斌，2016/02/04
+ * Version 0.0.3, 李斌，2016/02/22
  */
 #ifndef MR_STRING_H
 #define MR_STRING_H
@@ -194,28 +194,47 @@ extern char *right_b(char *dest, const char *src, size_t n);
 extern char *right_c(char *dest, const char *src, size_t n);
 
 /**
- * 移除字符串头部的空白字符
- * src:		原字符串，不能为字符串字面量
+ * 找到原字符串中第一个非空白符的位置
+ * str:		原字符串
+ *
+ * 返回:	第一个非空白符的指针，找不到或str==NULL时返回NULL
+ */
+extern char *first_nonspace(const char *str);
+
+/**
+ * 找到原字符串中最后一个非空白符的位置
+ * str:		原字符串
+ *
+ * 返回:	最后一个非空白符的指针，找不到或str==NULL时返回NULL
+ */
+extern char *last_nonspace(const char *str);
+
+/**
+ * 移除字符串头部的空白字符，原字符串为NULL时返回空字符串
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
  *
  * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
  */
-extern char *ltrim(char *src);
+extern char *ltrim(char *dest, const char *src);
 
 /**
  * 移除字符串尾部的空白字符
- * src:		原字符串，不能为字符串字面量
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
  *
- * 返回:	移除尾部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL或src==NULL则返回仍然为NULL
  */
-extern char *rtrim(char *src);
+extern char *rtrim(char *dest, const char *src);
 
 /**
  * 移除字符串头尾的空白字符
- * src:		原字符串，不能为字符串字面量
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
  *
- * 返回:	移除头尾空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
  */
-extern char *trim(char *src);
+extern char *trim(char *dest, const char *src);
 
 /**
  * 判断一个字符串是否为空，即指针为NULL或长度为0

@@ -21,9 +21,11 @@ char *left_b(char *dest, const char *src, size_t n);
 char *left_c(char *dest, const char *src, size_t n);
 char *right_b(char *dest, const char *src, size_t n);
 char *right_c(char *dest, const char *src, size_t n);
-char *ltrim(char *src);
-char *rtrim(char *src);
-char *trim(char *src);
+char *first_nonspace(const char *str);
+char *last_nonspace(const char *str);
+char *ltrim(char *dest, const char *src);
+char *rtrim(char *dest, const char *src);
+char *trim(char *dest, const char *src);
 int is_empty(const char *str);
 int is_blank(const char *str);
 
@@ -566,51 +568,109 @@ char *right_c(char *dest, const char *src, size_t n)
 }
 
 /**
- * 移除字符串头部的空白字符
- * src:		原字符串，不能为字符串字面量
+ * 找到原字符串中第一个非空白符的位置
+ * str:		原字符串
  *
- * 返回:	移除头部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ * 返回:	第一个非空白符的指针，找不到或str==NULL时返回NULL
  */
-char *ltrim(char *src)
+char *first_nonspace(const char *str)
 {
-	if (src != NULL) {
-		char *p = src;
-		while (*p != EOS && isspace(*p)) {
-			p++;
+	const char *ret = str;
+	if (ret != NULL) {
+		while (*ret != EOS && isspace(*ret)) {
+			ret++;
 		}
-		char *s = src;
-		while ((*(s++) = *(p++)) != EOS);
+		if (*ret == EOS) {
+			ret = NULL;
+		}
 	}
-	return src;
+	return (char *)ret;
+}
+
+/**
+ * 找到原字符串中最后一个非空白符的位置
+ * str:		原字符串
+ *
+ * 返回:	最后一个非空白符的指针，找不到或str==NULL时返回NULL
+ */
+char *last_nonspace(const char *str)
+{
+	const char *ret = str;
+	if (ret != NULL) {
+		ret += strlen(str) - 1;
+		while (ret >= str && isspace(*ret)) {
+			ret--;
+		}
+		if (ret < str) {
+			ret = NULL;
+		}
+	}
+	return (char *)ret;
+}
+
+/**
+ * 移除字符串头部的空白字符，原字符串为NULL时返回空字符串
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
+ *
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
+ */
+char *ltrim(char *dest, const char *src)
+{
+	if (dest != NULL) {
+		char *p = first_nonspace(src);
+		if (p == NULL) {
+			*dest = EOS;
+		} else {
+			strcpy(dest, p);
+		}
+	}
+	return dest;
 }
 
 /**
  * 移除字符串尾部的空白字符
- * src:		原字符串，不能为字符串字面量
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
  *
- * 返回:	移除尾部空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
  */
-char *rtrim(char *src)
+char *rtrim(char *dest, const char *src)
 {
 	if (src != NULL) {
-		char *p = src + strlen(src) - 1;
-		while (p >= src && isspace(*p)) {
-			p--;
+		char *p = last_nonspace(src);
+		if (p == NULL) {
+			*dest = EOS;
+		} else {
+			size_t n = p - src + 1;
+			strncpy(dest, src, n);
+			*(dest + n) = EOS;
 		}
-		*(++p) = EOS;
 	}
-	return src;
+	return dest;
 }
 
 /**
  * 移除字符串头尾的空白字符
- * src:		原字符串，不能为字符串字面量
+ * dest:	目标字符串的指针，目标缓冲区必须保证有足够的长度
+ * src:		原字符符
  *
- * 返回:	移除头尾空白字符后的字符串起始地址，与src相同，如果src==NULL则返回仍然为NULL
+ * 返回:	移除头部空白字符后的字符串起始地址，与dest相同，如果dest==NULL则返回仍然为NULL
  */
-char *trim(char *src)
+char *trim(char *dest, const char *src)
 {
-	return ltrim(rtrim(src));
+	if (dest != NULL) {
+		char *sp = first_nonspace(src);
+		if (sp == NULL) {
+			*dest = EOS;
+		} else {
+			char *ep = last_nonspace(src);
+			size_t n = ep - sp + 1;
+			strncpy(dest, sp, n);
+			*(dest + n) = EOS;
+		}
+	}
+	return dest;
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用工具函数、常量及宏函数
  *
- * Version 1.0.1, 李斌，2016/02/04
+ * Version 1.0.2, 李斌，2016/02/22
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -45,5 +45,14 @@
  * 判断一个变量是否处于两个边界数字之外（含边界）的宏函数
  */
 #define EX(x, min, max) (((x) <= (min)) || ((x) >= (max)))
+
+/**
+ * 自定义数据比较函数，NULL指针被认为比任何非NULL数据项小
+ * d1:		第一个待比较的数据的指针
+ * d2:		第二个待比较的数据的指针
+ *
+ * 返回:	如果d1==d2，返回0；如果d1 > d2，返回一个正整数；如果d1 < d2，返回一个负整数
+ */
+typedef int (*Comparator)(void *d1, void *d2);
 
 #endif
