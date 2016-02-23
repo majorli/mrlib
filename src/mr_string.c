@@ -5,6 +5,7 @@
 
 #include "mr_common.h"
 #include "mr_string.h"
+#include "mr_arraylist.h"
 
 int utf2gb(char *src, size_t slen, char *dest, size_t dlen);
 int gb2utf(char *src, size_t slen, char *dest, size_t dlen);

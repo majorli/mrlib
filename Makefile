@@ -18,8 +18,11 @@ scanChar.out:mr_string.o
 str_trim.out:mr_string.o
 	clang $(SRC_SAMPLE)/str_trim.c $(OUT_LIB)/mr_string.o -o$(OUT_SAMPLE)/str_trim.out $(INCLUDE)
 
-mr_string.o:$(SRC_LIB)/mr_string.c
-	clang $(SRC_LIB)/mr_string.c -c -o$(OUT_LIB)/mr_string.o $(INCLUDE)
-
+mr_string.o:$(SRC_LIB)/mr_string.c mr_arraylist.o
+	clang $(SRC_LIB)/mr_string.c $(OUT_LIB)/mr_arraylist.o -c -o$(OUT_LIB)/mr_string.o $(INCLUDE)
+mr_arraylist.o:$(SRC_LIB)/mr_arraylist.c mr_containers.o
+	clang $(SRC_LIB)/mr_arraylist.c $(OUT_LIB)/mr_containers.o -c -o$(OUT_LIB)/mr_arraylist.o $(INCLUDE)
+mr_containers.o:$(SRC_LIB)/mr_containers.c
+	clang $(SRC_LIB)/mr_containers.c -c -o$(OUT_LIB)/mr_containers.o $(INCLUDE)
 clean:
 	-rm $(OUT_LIB)/*.o $(OUT_SAMPLE)/*.out

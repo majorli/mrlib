@@ -55,4 +55,19 @@
  */
 typedef int (*Comparator)(void *d1, void *d2);
 
+/**
+ * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄
+ */
+typedef int ArrayList;
+typedef int LinkedList;
+typedef int HashSet;
+typedef int LinkedHashSet;
+typedef int Stack;
+typedef int Queue;
+typedef int CircularQueue;
+typedef int HashMap;
+typedef int LinkedHashMap;
+typedef int BTree;
+typedef int Tree;
+
 #endif
