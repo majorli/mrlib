@@ -54,7 +54,7 @@ int container_retrieve(Container container)
 int container_release(int handler)
 {
 	int ret = -1;
-	if (containers_capacity > 0 && containers_elements > 0 && containers_pool[handler] != NULL) {	// 有效的释放
+	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的释放
 		ret = handler;
 		containers_pool[handler] = NULL;
 		if (handler < containers_elements + slots_top - 1) {		// 释放了一个中间节点，形成了一个空隙句柄
