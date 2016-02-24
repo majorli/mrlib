@@ -1,28 +1,48 @@
-## LIB = -lpthread
+DIR_LIB = lib
+DIR_SRC = src
+DIR_SAMPLES_BIN = bin
+DIR_SAMPLES_SRC = samples
+DIR_USR_LIB = /usr/lib
+
+LIBRARY = libmrlib.so
+
+OBJECTS_SRC = $(wildcard $(DIR_SRC)/*.c)
+OBJECTS = $(patsubst %.c, %.o, $(notdir $(OBJECTS_SRC)))
+
+SAMPLES_SRC = $(wildcard $(DIR_SAMPLES_SRC)/*.c)
+SAMPLES = $(patsubst %.c, %.out, $(notdir $(SAMPLES_SRC)))
+SAMPLES_NAME = $(patsubst %.c, %, $(notdir $(SAMPLES_SRC)))
+
+CC = clang
+LIB = -L$(DIR_LIB) -lmrlib -lpthread 
 INCLUDE = -Iinclude
-OUT_LIB = lib
-SRC_LIB = src
-OUT_SAMPLE = bin
-SRC_SAMPLE = samples
 
-OBJECTS = $(patsubst %c, %out, $(notdir $(wildcard $(SRC_SAMPLE)/*.c)))
+define MAKE_SAMPLE
+$(1):
+	$(CC) $(DIR_SAMPLES_SRC)/$(2) -o$(DIR_SAMPLES_BIN)/$(1) $(INCLUDE) $(LIB)
+endef
 
-.PHONY:all clean
+.PHONY:all clean install uninst
 
-all: $(OBJECTS)
+all: $(LIBRARY) $(SAMPLES)
 
-charset_conv.out:mr_string.o
-	clang $(SRC_SAMPLE)/charset_conv.c $(OUT_LIB)/mr_string.o -o$(OUT_SAMPLE)/charset_conv.out $(INCLUDE)
-scanChar.out:mr_string.o
-	clang $(SRC_SAMPLE)/scanChar.c $(OUT_LIB)/mr_string.o -o$(OUT_SAMPLE)/scanChar.out $(INCLUDE)
-str_trim.out:mr_string.o
-	clang $(SRC_SAMPLE)/str_trim.c $(OUT_LIB)/mr_string.o -o$(OUT_SAMPLE)/str_trim.out $(INCLUDE)
+$(LIBRARY):$(OBJECTS)
+	$(CC) $(OBJECTS) -shared -fPIC -o$(DIR_LIB)/$(LIBRARY)
+	-rm -f $(OBJECTS)
 
-mr_string.o:$(SRC_LIB)/mr_string.c mr_arraylist.o
-	clang $(SRC_LIB)/mr_string.c $(OUT_LIB)/mr_arraylist.o -c -o$(OUT_LIB)/mr_string.o $(INCLUDE)
-mr_arraylist.o:$(SRC_LIB)/mr_arraylist.c mr_containers.o
-	clang $(SRC_LIB)/mr_arraylist.c $(OUT_LIB)/mr_containers.o -c -o$(OUT_LIB)/mr_arraylist.o $(INCLUDE)
-mr_containers.o:$(SRC_LIB)/mr_containers.c
-	clang $(SRC_LIB)/mr_containers.c -c -o$(OUT_LIB)/mr_containers.o $(INCLUDE)
+$(OBJECTS):$(OBJECTS_SRC)
+	$(CC) $(OBJECTS_SRC) -fPIC -c $(INCLUDE)
+
+$(foreach n,$(SAMPLES_NAME),$(eval $(call MAKE_SAMPLE,$(n).out,$(n).c)))
+
 clean:
-	-rm $(OUT_LIB)/*.o $(OUT_SAMPLE)/*.out
+	-rm -f $(DIR_LIB)/*.so *.o $(DIR_SAMPLES_BIN)/*.out
+
+install:
+	cp -f $(DIR_LIB)/$(LIBRARY) $(DIR_USR_LIB)/
+	ldconfig
+
+uninst:
+	rm -f $(DIR_USR_LIB)/$(LIBRARY)
+	ldconfig
+

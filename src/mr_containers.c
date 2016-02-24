@@ -1,12 +1,15 @@
 #include <stdlib.h>
+#include <pthread.h>
 
+#include "mr_common.h"
 #include "mr_containers.h"
 
 static Container *containers_pool = NULL;		// 容器池
 static size_t containers_capacity = 0;			// 容器池总容量
 static size_t containers_elements = 0;			// 容器池中实际容器数量
+static pthread_mutex_t pool_mut;			// 容器池的共享锁
 
-static const size_t section_size = 20;			// 容器池扩容时每节的长度
+static const size_t SECTION_SIZE = 20;			// 容器池扩容时每节的长度
 
 static int *slots = NULL;				// 空隙句柄堆栈
 static size_t slots_capacity = 0;			// 空隙句柄堆栈总容量
@@ -30,8 +33,14 @@ static void slots_push(int slot);
  */
 int container_retrieve(Container container)
 {
+	if (__MultiThreads__ == 1) {
+		if (containers_pool == NULL) {
+			pthread_mutex_init(&pool_mut, NULL);
+		}
+		pthread_mutex_lock(&pool_mut);
+	}
 	int ret = -1;
-	if (containers_capacity == 0) {			// 池还没有初始化，先初始化池
+	if (containers_pool == NULL) {			// 池还没有初始化，先初始化池
 		pool_init();
 	}
 	if ((ret = slots_pop()) == -1) {		// 没有空隙句柄，需要顺序取下一个句柄
@@ -42,6 +51,9 @@ int container_retrieve(Container container)
 	}
 	containers_pool[ret] = container;
 	containers_elements++;
+	if (__MultiThreads__ == 1) {
+		pthread_mutex_unlock(&pool_mut);
+	}
 	return ret;
 }
 
@@ -53,6 +65,9 @@ int container_retrieve(Container container)
  */
 int container_release(int handler)
 {
+	if (__MultiThreads__ == 1) {
+		pthread_mutex_lock(&pool_mut);
+	}
 	int ret = -1;
 	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的释放
 		ret = handler;
@@ -65,25 +80,31 @@ int container_release(int handler)
 			pool_destroy();
 		}
 	}
+	if (__MultiThreads__ == 1) {
+		pthread_mutex_unlock(&pool_mut);
+		if (containers_pool == NULL) {
+			pthread_mutex_destroy(&pool_mut);
+		}
+	}
 	return ret;
 }
 
 /**
- * 初始化容器池，容量为一个section_size，同时初始化空隙句柄堆栈，容量为一个section_size
+ * 初始化容器池，容量为一个SECTION_SIZE，同时初始化空隙句柄堆栈，容量为一个SECTION_SIZE
  */
 static void pool_init(void)
 {
 	// 初始化容器池
-	containers_pool = (Container *)malloc(section_size * sizeof(Container));
-	containers_capacity = section_size;
+	containers_pool = (Container *)malloc(SECTION_SIZE * sizeof(Container));
+	containers_capacity = SECTION_SIZE;
 	containers_elements = 0;
 	// 容器池中新增的节点全部设置为NULL
-	for (int i = 0; i < section_size; i++) {
+	for (int i = 0; i < SECTION_SIZE; i++) {
 		containers_pool[i] = NULL;
 	}
 	// 初始化空隙句柄堆栈
-	slots = (int *)malloc(section_size * sizeof(int));
-	slots_capacity = section_size;
+	slots = (int *)malloc(SECTION_SIZE * sizeof(int));
+	slots_capacity = SECTION_SIZE;
 	slots_top = 0;
 	return;
 }
@@ -94,20 +115,22 @@ static void pool_init(void)
 static void pool_destroy(void)
 {
 	free(containers_pool);
+	containers_pool = NULL;
 	containers_capacity = 0;
 	containers_elements = 0;
 	free(slots);
+	slots = NULL;
 	slots_capacity = 0;
 	slots_top = 0;
 	return;
 }
 
 /**
- * 扩容容器池，扩容的容量为一个section_size
+ * 扩容容器池，扩容的容量为一个SECTION_SIZE
  */
 static void pool_expand(void)
 {
-	size_t nc = containers_capacity + section_size;
+	size_t nc = containers_capacity + SECTION_SIZE;
 	containers_pool = (Container *)realloc(containers_pool, nc * sizeof(Container));
 	for (size_t i = containers_capacity; i < nc; i++) {
 		containers_pool[i] = NULL;
@@ -131,13 +154,13 @@ static int slots_pop(void)
 }
 
 /**
- * 压入一个空隙句柄到堆栈中，如果堆栈已满则以一个section_size为单位扩容堆栈
+ * 压入一个空隙句柄到堆栈中，如果堆栈已满则以一个SECTION_SIZE为单位扩容堆栈
  * slot:	空隙句柄
  */
 static void slots_push(int slot)
 {
 	if (slots_top == slots_capacity) {	// 堆栈已满，先扩容堆栈
-		slots_capacity += section_size;
+		slots_capacity += SECTION_SIZE;
 		slots = (int *)realloc(slots, slots_capacity * sizeof(int));
 	}
 	slots[slots_top++] = slot;
