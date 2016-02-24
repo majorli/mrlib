@@ -7,11 +7,11 @@ DIR_USR_LIB = /usr/lib
 LIBRARY = libmrlib.so
 
 OBJECTS_SRC = $(wildcard $(DIR_SRC)/*.c)
-OBJECTS = $(patsubst %.c, %.o, $(notdir $(OBJECTS_SRC)))
+OBJECTS = $(patsubst %.c,%.o,$(notdir $(OBJECTS_SRC)))
 
 SAMPLES_SRC = $(wildcard $(DIR_SAMPLES_SRC)/*.c)
-SAMPLES = $(patsubst %.c, %.out, $(notdir $(SAMPLES_SRC)))
-SAMPLES_NAME = $(patsubst %.c, %, $(notdir $(SAMPLES_SRC)))
+SAMPLES = $(patsubst %.c,%.out,$(notdir $(SAMPLES_SRC)))
+SAMPLES_NAME = $(patsubst %.c,%,$(notdir $(SAMPLES_SRC)))
 
 CC = clang
 LIB = -L$(DIR_LIB) -lmrlib -lpthread 
