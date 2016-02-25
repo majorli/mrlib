@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "mr_common.h"
-#include "mr_string.h"
+#include <mr_common.h>
+#include <mr_string.h>
 
 int main(void)
 {

@@ -350,29 +350,27 @@ size_t strlen_c(const char *s)
 int strcmp_c(const char *s1, const char *s2)
 {
 	int ret = 0;
-	if (s1 == NULL) {
-		if (s2 == NULL) {
-			ret = 0;
-		} else {
+	if (s1 != s2) {
+		if (s1 == NULL) {
 			ret = -1;
-		}
-	} else {
-		if (s2 == NULL) {
-			ret = 1;
 		} else {
-			size_t slen1 = strlen(s1);
-			size_t slen2 = strlen(s2);
-			size_t dlen1 = UTF2GB_LEN(slen1);
-			size_t dlen2 = UTF2GB_LEN(slen2);
-			char *d1 = (char *)malloc(dlen1*sizeof(char));
-			char *d2 = (char *)malloc(dlen2*sizeof(char));
-			if (utf2gb((char *)s1, slen1, d1, dlen1) == 0 && utf2gb((char *)s2, slen2, d2, dlen2) ==0) {
-				ret = strcmp(d1, d2);	// 转换为GB18030编码进行中文顺序比较
+			if (s2 == NULL) {
+				ret = 1;
 			} else {
-				ret = 0;		// 有字符串转换为GB18030失败，无法比较中文顺序，视为相等
+				size_t slen1 = strlen(s1);
+				size_t slen2 = strlen(s2);
+				size_t dlen1 = UTF2GB_LEN(slen1);
+				size_t dlen2 = UTF2GB_LEN(slen2);
+				char *d1 = (char *)malloc(dlen1*sizeof(char));
+				char *d2 = (char *)malloc(dlen2*sizeof(char));
+				if (utf2gb((char *)s1, slen1, d1, dlen1) == 0 && utf2gb((char *)s2, slen2, d2, dlen2) ==0) {
+					ret = strcmp(d1, d2);	// 转换为GB18030编码进行中文顺序比较
+				} else {
+					ret = 0;		// 有字符串转换为GB18030失败，无法比较中文顺序，视为相等
+				}
+				free(d1);
+				free(d2);
 			}
-			free(d1);
-			free(d2);
 		}
 	}
 	return ret;
@@ -389,13 +387,9 @@ int strcmp_c(const char *s1, const char *s2)
 int strncmp_c(const char *s1, const char *s2, size_t n)
 {
 	int ret = 0;
-	if (n > 0) {
+	if (n > 0 && s1 != s2) {
 		if (s1 == NULL) {
-			if (s2 == NULL) {
-				ret = 0;
-			} else {
-				ret = -1;
-			}
+			ret = -1;
 		} else {
 			if (s2 == NULL) {
 				ret = 1;

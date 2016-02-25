@@ -53,13 +53,34 @@
 extern int __MultiThreads__;
 
 /**
- * 自定义数据比较函数，NULL指针被认为比任何非NULL数据项小
- * d1:		第一个待比较的数据的指针
- * d2:		第二个待比较的数据的指针
+ * (unsigned) char,(unsigned) short,(unsigned) int,(unsigned) long,(unsigned) long long,float,double,long double,string的比较函数，传入数据的指针进行比较
+ * NULL指针认为比非NULL指针小，两个NULL指针认为相等
+ * d1,d2:	用于比较的数的指针
  *
- * 返回:	如果d1==d2，返回0；如果d1 > d2，返回一个正整数；如果d1 < d2，返回一个负整数
+ * 返回:	两数相等返回0，*d1>*d2返回1，*d1<*d2返回-1
  */
-typedef int (*Comparator)(void *d1, void *d2);
+extern int charcmp(void *d1, void *d2);
+extern int ucharcmp(void *d1, void *d2);
+extern int shortcmp(void *d1, void *d2);
+extern int ushortcmp(void *d1, void *d2);
+extern int intcmp(void *d1, void *d2);
+extern int uintcmp(void *d1, void *d2);
+extern int longcmp(void *d1, void *d2);
+extern int ulongcmp(void *d1, void *d2);
+extern int llcmp(void *d1, void *d2);
+extern int ullcmp(void *d1, void *d2);
+extern int floatcmp(void *d1, void *d2);
+extern int doublecmp(void *d1, void *d2);
+extern int ldoublecmp(void *d1, void *d2);
+extern int stringcmp(void *d1, void *d2);
+
+/**
+ * 在不知道d1,d2指针到底指向什么类型数据的情况下，将其视为通用的对象来进行比较，比较规则如下：
+ * d1, d2指针值相同则认为两个对象相同，返回0
+ * d1, d2有一个为NULL指针的，认为非NULL指针大于NULL指针，返回-1或1
+ * d1, d2均不是NULL指针且不相同的，按指针值大小进行判断，返回-1或1
+ */
+extern int objcmp(void *d1, void *d2);
 
 /**
  * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄
@@ -75,5 +96,10 @@ typedef int HashMap;
 typedef int LinkedHashMap;
 typedef int BTree;
 typedef int Tree;
+
+/**
+ * 容器中元素的数据类型
+ */
+typedef void *Element;
 
 #endif

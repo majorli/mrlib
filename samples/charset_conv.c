@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "mr_common.h"
-#include "mr_string.h"
+#include <mr_common.h>
+#include <mr_string.h>
 
 /**
  * 中文字符串的编码方式转换，UTF-8与GB18030字符集互转

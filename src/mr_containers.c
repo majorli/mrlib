@@ -16,7 +16,8 @@ static size_t slots_capacity = 0;			// 空隙句柄堆栈总容量
 static size_t slots_top = 0;				// 空隙句柄数量
 
 int container_retrieve(Container container);
-int container_release(int handler);
+Container container_release(int handler);
+Container container_get(int handler);
 
 static void pool_init(void);
 static void pool_destroy(void);
@@ -61,16 +62,16 @@ int container_retrieve(Container container)
  * 从容器池中释放一个容器。一般由各类容器的free函数调用，客户端无需直接调用本函数
  * handler:	要释放的容器的句柄
  *
- * 返回:	被释放容器的句柄，操作失败返回-1
+ * 返回:	被释放的容器，操作失败返回NULL
  */
-int container_release(int handler)
+Container container_release(int handler)
 {
 	if (__MultiThreads__ == 1) {
 		pthread_mutex_lock(&pool_mut);
 	}
-	int ret = -1;
+	Container ret = NULL;
 	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的释放
-		ret = handler;
+		ret = containers_pool[handler];
 		containers_pool[handler] = NULL;
 		if (handler < containers_elements + slots_top - 1) {		// 释放了一个中间节点，形成了一个空隙句柄
 			slots_push(handler);
@@ -85,6 +86,21 @@ int container_release(int handler)
 		if (containers_pool == NULL) {
 			pthread_mutex_destroy(&pool_mut);
 		}
+	}
+	return ret;
+}
+
+/**
+ * 根据句柄从容器池中获得实际的容器
+ * handler:	要获取的容器的句柄
+ *
+ * 返回:	获取的容器，无效的句柄返回NULL
+ */
+Container container_get(int handler)
+{
+	Container ret = NULL;
+	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的句柄
+		ret = containers_pool[handler];
 	}
 	return ret;
 }

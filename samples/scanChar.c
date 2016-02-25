@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mr_common.h"
-#include "mr_string.h"
+#include <mr_common.h>
+#include <mr_string.h>
 
 /**
  * 按UTF-8编码规则依次顺序或逆序扫描一个字符串中的每个有效字符

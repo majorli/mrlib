@@ -24,8 +24,16 @@ extern int container_retrieve(Container container);
  * 从容器池中释放一个容器。一般由各类容器的free函数调用，客户端无需直接调用本函数
  * handler:	要释放的容器的句柄
  *
- * 返回:	被释放容器的句柄，操作失败返回-1
+ * 返回:	被释放的容器，操作失败返回NULL
  */
-extern int container_release(int handler);
+extern Container container_release(int handler);
+
+/**
+ * 根据句柄从容器池中获得实际的容器
+ * handler:	要获取的容器的句柄
+ *
+ * 返回:	获取的容器，无效的句柄返回NULL
+ */
+extern Container container_get(int handler);
 
 #endif
