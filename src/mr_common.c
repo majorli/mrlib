@@ -450,11 +450,17 @@ void quicksort(Element *a, int left, int right, CmpFunc cmpfunc)
 		while (i < j && cmpfunc(key, a[j]) <= 0) {
 			j--;
 		}
-		a[i] = a[j];
+		if (i < j) {
+			a[i] = a[j];
+			i++;
+		}
 		while (i < j && cmpfunc(key, a[i]) >= 0) {
 			i++;
 		}
-		a[j] = a[i];
+		if (i < j) {
+			a[j] = a[i];
+			j--;
+		}
 	}
 	a[i] = key;
 	quicksort(a, left, i - 1, cmpfunc);
