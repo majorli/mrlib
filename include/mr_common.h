@@ -53,6 +53,37 @@
 extern int __MultiThreads__;
 
 /**
+ * 容器元素的基本类型
+ */
+typedef void *Element;
+
+/**
+ * 容器元素具体类型枚举
+ */
+typedef enum {
+	Char,
+	UChar,
+	Short,
+	UShort,
+	Int,
+	UInt,
+	Long,
+	ULong,
+	LLong,
+	ULLong,
+	Float,
+	Double,
+	LDouble,
+	String,
+	Object
+} ElementType;
+
+/**
+ * 元素比较函数的类型定义
+ */
+typedef int (*CmpFunc)(void *, void *);
+
+/**
  * (unsigned) char,(unsigned) short,(unsigned) int,(unsigned) long,(unsigned) long long,float,double,long double,string的比较函数，传入数据的指针进行比较
  * NULL指针认为比非NULL指针小，两个NULL指针认为相等
  * d1,d2:	用于比较的数的指针
@@ -81,6 +112,11 @@ extern int stringcmp(void *d1, void *d2);
  * d1, d2均不是NULL指针且不相同的，按指针值大小进行判断，返回-1或1
  */
 extern int objcmp(void *d1, void *d2);
+
+/**
+ * 根据元素类型获取默认的比较函数
+ */
+extern CmpFunc default_cmpfunc(ElementType type);
 
 /**
  * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄

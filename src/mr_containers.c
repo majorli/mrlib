@@ -1,10 +1,17 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "mr_common.h"
 #include "mr_containers.h"
 
-static Container *containers_pool = NULL;		// 容器池
+/**
+ * 容器在池中的节点的结构类型
+ */
+typedef struct {
+	Container container;
+	ContainerType type;
+} node_t, *node_p;
+
+static node_p *containers_pool = NULL;			// 容器池
 static size_t containers_capacity = 0;			// 容器池总容量
 static size_t containers_elements = 0;			// 容器池中实际容器数量
 static pthread_mutex_t pool_mut;			// 容器池的共享锁
@@ -15,9 +22,9 @@ static int *slots = NULL;				// 空隙句柄堆栈
 static size_t slots_capacity = 0;			// 空隙句柄堆栈总容量
 static size_t slots_top = 0;				// 空隙句柄数量
 
-int container_retrieve(Container container);
-Container container_release(int handler);
-Container container_get(int handler);
+int container_retrieve(Container container, ContainerType type);
+Container container_release(int handler, ContainerType type);
+Container container_get(int handler, ContainerType type);
 
 static void pool_init(void);
 static void pool_destroy(void);
@@ -29,10 +36,11 @@ static void slots_push(int slot);
 /**
  * 在容器池中获取一个句柄并保存容器到池中。一般由各类容器的create函数调用，客户端无需直接调用本函数
  * container:	要保存到池中的容器
+ * type:	容器的具体类型
  *
  * 返回:	容器获得的句柄，是一个正整数，操作失败返回-1
  */
-int container_retrieve(Container container)
+int container_retrieve(Container container, ContainerType type)
 {
 	if (__MultiThreads__ == 1) {
 		if (containers_pool == NULL) {
@@ -50,7 +58,9 @@ int container_retrieve(Container container)
 		}
 		ret = containers_elements;
 	}
-	containers_pool[ret] = container;
+	containers_pool[ret] = (node_p)malloc(sizeof(node_t));
+	containers_pool[ret]->container = container;
+	containers_pool[ret]->type = type;
 	containers_elements++;
 	if (__MultiThreads__ == 1) {
 		pthread_mutex_unlock(&pool_mut);
@@ -61,17 +71,19 @@ int container_retrieve(Container container)
 /**
  * 从容器池中释放一个容器。一般由各类容器的free函数调用，客户端无需直接调用本函数
  * handler:	要释放的容器的句柄
+ * type:	容器的具体类型
  *
  * 返回:	被释放的容器，操作失败返回NULL
  */
-Container container_release(int handler)
+Container container_release(int handler, ContainerType type)
 {
 	if (__MultiThreads__ == 1) {
 		pthread_mutex_lock(&pool_mut);
 	}
 	Container ret = NULL;
-	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的释放
-		ret = containers_pool[handler];
+	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL && containers_pool[handler]->type == type) {
+		ret = containers_pool[handler]->container;
+		free(containers_pool[handler]);
 		containers_pool[handler] = NULL;
 		if (handler < containers_elements + slots_top - 1) {		// 释放了一个中间节点，形成了一个空隙句柄
 			slots_push(handler);
@@ -93,14 +105,15 @@ Container container_release(int handler)
 /**
  * 根据句柄从容器池中获得实际的容器
  * handler:	要获取的容器的句柄
+ * type:	容器的具体类型
  *
  * 返回:	获取的容器，无效的句柄返回NULL
  */
-Container container_get(int handler)
+Container container_get(int handler, ContainerType type)
 {
 	Container ret = NULL;
-	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL) {	// 有效的句柄
-		ret = containers_pool[handler];
+	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL && containers_pool[handler]->type == type) {
+		ret = containers_pool[handler]->container;
 	}
 	return ret;
 }
@@ -111,7 +124,7 @@ Container container_get(int handler)
 static void pool_init(void)
 {
 	// 初始化容器池
-	containers_pool = (Container *)malloc(SECTION_SIZE * sizeof(Container));
+	containers_pool = (node_p *)malloc(SECTION_SIZE * sizeof(node_p));
 	containers_capacity = SECTION_SIZE;
 	containers_elements = 0;
 	// 容器池中新增的节点全部设置为NULL
@@ -147,7 +160,7 @@ static void pool_destroy(void)
 static void pool_expand(void)
 {
 	size_t nc = containers_capacity + SECTION_SIZE;
-	containers_pool = (Container *)realloc(containers_pool, nc * sizeof(Container));
+	containers_pool = (node_p *)realloc(containers_pool, nc * sizeof(node_p));
 	for (size_t i = containers_capacity; i < nc; i++) {
 		containers_pool[i] = NULL;
 	}

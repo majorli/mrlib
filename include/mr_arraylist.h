@@ -11,13 +11,24 @@
 #ifndef MR_ARRAYLIST_H
 #define MR_ARRAYLIST_H
 
+#include "mr_common.h"
+
 /**
  * 创建一个ArrayList，返回句柄
- * cmpfunc:	元素比较函数，传入NULL表示采用mr_common.h中定义的默认对象比较函数objcmp()
+ * type:	元素的类型
+ * cmpfunc:	元素比较函数，传入NULL表示采用mr_common.h中定义的与type对应的默认比较函数
  *
  * 返回:	新创建的ArrayList的句柄(一个大于等于0的正整数)，创建失败返回-1
  */
-extern ArrayList al_create(int (*cmpfunc)(void *, void *));
+extern ArrayList al_create(ElementType type, CmpFunc cmpfunc);
+
+/**
+ * 销毁一个ArrayList，释放列表的空间，但不会销毁其中的元素
+ * al:		ArrayList句柄
+ *
+ * 返回:	销毁完成返回0，销毁失败或无效ArrayList句柄返回-1
+ */
+extern int al_destroy(ArrayList al);
 
 /**
  * 判断一个ArrayList是否为空
@@ -42,7 +53,7 @@ extern size_t al_size(ArrayList al);
  *
  * 返回:	index位置的元素指针，超出0 <= index < size的范围时返回NULL，无效ArrayList句柄返回NULL
  */
-extern void *al_get(ArrayList al, size_t index);
+extern Element al_get(ArrayList al, size_t index);
 
 /**
  * 在列表最后添加一个元素
@@ -51,7 +62,7 @@ extern void *al_get(ArrayList al, size_t index);
  *
  * 返回:	元素添加后所在位置，如果元素为NULL或者al句柄无效，或发生其他错误导致添加失败返回-1
  */
-extern int al_append(ArrayList al, void *ele);
+extern int al_append(ArrayList al, Element ele);
 
 /**
  * 在列表指定位置添加一个元素
@@ -61,7 +72,7 @@ extern int al_append(ArrayList al, void *ele);
  *
  * 返回:	元素插入后所在位置，如果元素为NULL或者al句柄无效，或发生其他错误导致添加失败返回-1
  */
-extern int al_add(ArrayList al, void *ele, size_t index);
+extern int al_add(ArrayList al, Element ele, size_t index);
 
 /**
  * 删除指定位置的元素
@@ -70,7 +81,7 @@ extern int al_add(ArrayList al, void *ele, size_t index);
  *
  * 返回:	删除的元素，al句柄无效或index超范围时返回NULL
  */
-extern void *al_remove(ArrayList al, size_t index);
+extern Element al_remove(ArrayList al, size_t index);
 
 /**
  * 从列表中查找一个元素，元素的查找使用列表创建时提供的对象比较函数
@@ -79,7 +90,7 @@ extern void *al_remove(ArrayList al, size_t index);
  *
  * 返回:	查找到的时候返回元素位置，有多个相同元素时返回最前面的那个，al句柄无效或ele为NULL或查找不到返回-1
  */
-extern int al_search(ArrayList al, void *ele);
+extern int al_search(ArrayList al, Element ele);
 
 /**
  * 清空列表，清空列表并不会释放列表所用的内存空间
@@ -101,6 +112,6 @@ extern void al_sort(ArrayList al);
  * cmpfunc:	比较函数，传入NULL表示清除原比较函数改为采用mr_common.h中定义的objcmp()函数
  *
  */
-extern void al_comparator(int (*cmpfunc)(void *, void *));
+extern void al_comparator(CmpFunc cmpfunc);
 
 #endif

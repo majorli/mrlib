@@ -1,5 +1,7 @@
 #include <string.h>
 
+#include "mr_common.h"
+
 int __MultiThreads__ = 1;
 
 /**
@@ -24,6 +26,7 @@ int doublecmp(void *d1, void *d2);
 int ldoublecmp(void *d1, void *d2);
 int stringcmp(void *d1, void *d2);
 int objcmp(void *d1, void *d2);
+CmpFunc default_cmpfunc(ElementType type);
 
 int charcmp(void *d1, void *d2)
 {
@@ -364,6 +367,64 @@ int objcmp(void *d1, void *d2)
 				}
 			}
 		}
+	}
+	return ret;
+}
+
+/**
+ * 根据元素类型获取默认的比较函数
+ */
+CmpFunc default_cmpfunc(ElementType type)
+{
+	CmpFunc ret = NULL;
+	switch (type) {
+		case Char:
+			ret = charcmp;
+			break;
+		case UChar:
+			ret = ucharcmp;
+			break;
+		case Short:
+			ret = shortcmp;
+			break;
+		case UShort:
+			ret = ushortcmp;
+			break;
+		case Int:
+			ret = intcmp;
+			break;
+		case UInt:
+			ret = uintcmp;
+			break;
+		case Long:
+			ret = longcmp;
+			break;
+		case ULong:
+			ret = ulongcmp;
+			break;
+		case LLong:
+			ret = llcmp;
+			break;
+		case ULLong:
+			ret = ullcmp;
+			break;
+		case Float:
+			ret = floatcmp;
+			break;
+		case Double:
+			ret = doublecmp;
+			break;
+		case LDouble:
+			ret = ldoublecmp;
+			break;
+		case String:
+			ret = stringcmp;
+			break;
+		case Object:
+			ret = objcmp;
+			break;
+		default:
+			ret = objcmp;
 	}
 	return ret;
 }
