@@ -81,7 +81,7 @@ typedef enum {
 /**
  * 元素比较函数的类型定义
  */
-typedef int (*CmpFunc)(void *, void *);
+typedef int (*CmpFunc)(const void *, const void *);
 
 /**
  * (unsigned) char,(unsigned) short,(unsigned) int,(unsigned) long,(unsigned) long long,float,double,long double,string的比较函数，传入数据的指针进行比较
@@ -90,33 +90,43 @@ typedef int (*CmpFunc)(void *, void *);
  *
  * 返回:	两数相等返回0，*d1>*d2返回1，*d1<*d2返回-1
  */
-extern int charcmp(void *d1, void *d2);
-extern int ucharcmp(void *d1, void *d2);
-extern int shortcmp(void *d1, void *d2);
-extern int ushortcmp(void *d1, void *d2);
-extern int intcmp(void *d1, void *d2);
-extern int uintcmp(void *d1, void *d2);
-extern int longcmp(void *d1, void *d2);
-extern int ulongcmp(void *d1, void *d2);
-extern int llcmp(void *d1, void *d2);
-extern int ullcmp(void *d1, void *d2);
-extern int floatcmp(void *d1, void *d2);
-extern int doublecmp(void *d1, void *d2);
-extern int ldoublecmp(void *d1, void *d2);
-extern int stringcmp(void *d1, void *d2);
+extern int charcmp(const void *d1, const void *d2);
+extern int ucharcmp(const void *d1, const void *d2);
+extern int shortcmp(const void *d1, const void *d2);
+extern int ushortcmp(const void *d1, const void *d2);
+extern int intcmp(const void *d1, const void *d2);
+extern int uintcmp(const void *d1, const void *d2);
+extern int longcmp(const void *d1, const void *d2);
+extern int ulongcmp(const void *d1, const void *d2);
+extern int llcmp(const void *d1, const void *d2);
+extern int ullcmp(const void *d1, const void *d2);
+extern int floatcmp(const void *d1, const void *d2);
+extern int doublecmp(const void *d1, const void *d2);
+extern int ldoublecmp(const void *d1, const void *d2);
+extern int stringcmp(const void *d1, const void *d2);
 
-/**
+/*
  * 在不知道d1,d2指针到底指向什么类型数据的情况下，将其视为通用的对象来进行比较，比较规则如下：
  * d1, d2指针值相同则认为两个对象相同，返回0
  * d1, d2有一个为NULL指针的，认为非NULL指针大于NULL指针，返回-1或1
  * d1, d2均不是NULL指针且不相同的，按指针值大小进行判断，返回-1或1
  */
-extern int objcmp(void *d1, void *d2);
+extern int objcmp(const void *d1, const void *d2);
 
 /**
  * 根据元素类型获取默认的比较函数
  */
 extern CmpFunc default_cmpfunc(ElementType type);
+
+/**
+ * 对一组元素进行快速排序
+ * a:		待排序元素数组
+ * left:	左边界坐标
+ * right:	右边界坐标
+ * cmpfunc:	比较函数
+ *
+ */
+extern void quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
 
 /**
  * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄
@@ -132,10 +142,5 @@ typedef int HashMap;
 typedef int LinkedHashMap;
 typedef int BTree;
 typedef int Tree;
-
-/**
- * 容器中元素的数据类型
- */
-typedef void *Element;
 
 #endif

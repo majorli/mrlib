@@ -109,9 +109,10 @@ extern void al_sort(ArrayList al);
 
 /**
  * 为列表设置或清除元素的数据比较函数
+ * al:		ArrayList句柄
  * cmpfunc:	比较函数，传入NULL表示清除原比较函数改为采用mr_common.h中定义的objcmp()函数
  *
  */
-extern void al_comparator(CmpFunc cmpfunc);
+extern void al_comparator(ArrayList al, CmpFunc cmpfunc);
 
 #endif

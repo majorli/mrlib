@@ -111,9 +111,15 @@ Container container_release(int handler, ContainerType type)
  */
 Container container_get(int handler, ContainerType type)
 {
+	if (__MultiThreads__ == 1) {
+		pthread_mutex_lock(&pool_mut);
+	}
 	Container ret = NULL;
 	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL && containers_pool[handler]->type == type) {
 		ret = containers_pool[handler]->container;
+	}
+	if (__MultiThreads__ == 1) {
+		pthread_mutex_unlock(&pool_mut);
 	}
 	return ret;
 }
