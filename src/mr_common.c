@@ -440,27 +440,20 @@ CmpFunc default_cmpfunc(ElementType type)
  */
 void quicksort(Element *a, int left, int right, CmpFunc cmpfunc)
 {
-	if(left >= right) {
+	if(left >= right)
 		return;
-	}
 	int i = left;
 	int j = right;
 	Element key = a[left];
 	while (i < j) {
-		while (i < j && cmpfunc(key, a[j]) <= 0) {
+		while (i < j && cmpfunc(key, a[j]) <= 0)
 			j--;
-		}
-		if (i < j) {
-			a[i] = a[j];
+		if (i < j)
+			a[i++] = a[j];
+		while (i < j && cmpfunc(key, a[i]) >= 0)
 			i++;
-		}
-		while (i < j && cmpfunc(key, a[i]) >= 0) {
-			i++;
-		}
-		if (i < j) {
-			a[j] = a[i];
-			j--;
-		}
+		if (i < j)
+			a[j--] = a[i];
 	}
 	a[i] = key;
 	quicksort(a, left, i - 1, cmpfunc);
