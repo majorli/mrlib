@@ -129,6 +129,16 @@ extern CmpFunc default_cmpfunc(ElementType type);
 extern void quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
 
 /**
+ * 对一组元素进行插入排序
+ * a:		待排序元素数组
+ * left:	左边界坐标
+ * right:	右边界坐标
+ * cmpfunc:	比较函数
+ *
+ */
+extern void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc);
+
+/**
  * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄
  */
 typedef int ArrayList;

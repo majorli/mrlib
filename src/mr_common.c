@@ -28,6 +28,7 @@ int stringcmp(const void *d1, const void *d2);
 int objcmp(const void *d1, const void *d2);
 CmpFunc default_cmpfunc(ElementType type);
 void quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
+void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc);
 
 int charcmp(const void *d1, const void *d2)
 {
@@ -461,3 +462,24 @@ void quicksort(Element *a, int left, int right, CmpFunc cmpfunc)
 	return;
 }
 
+/**
+ * 对一组元素进行插入排序
+ * a:		待排序元素数组
+ * left:	左边界坐标
+ * right:	右边界坐标
+ * cmpfunc:	比较函数
+ *
+ */
+void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc)
+{
+	int i, j;
+	for (i = left + 1; i <= right; i++) {
+		Element temp = a[i];
+		j = i;
+		while (j > 0 && cmpfunc(a[j - 1], temp) > 0) {
+			a[j] = a[j - 1];
+			j--;
+		}
+		a[j] = temp;
+	}
+}

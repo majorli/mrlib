@@ -25,6 +25,7 @@ void *al_remove(ArrayList al, size_t index);
 int al_search(ArrayList al, Element ele);
 int al_clear(ArrayList al);
 void al_sort(ArrayList al);
+void al_stsort(ArrayList al);
 void al_comparator(ArrayList al, CmpFunc cmpfunc);
 
 static size_t al_expand(al_p list);
@@ -311,11 +312,31 @@ int al_clear(ArrayList al)
 void al_sort(ArrayList al)
 {
 	al_p list = (al_p)container_get(al, ArrayList_t);
-	if (list != NULL) {
+	if (list != NULL && list->size > 1) {
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_lock(&(list->mut));
 		}
 		quicksort(list->elements, 0, list->size - 1, list->cmpfunc);
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
+		}
+	}
+	return;
+}
+
+/**
+ * 列表元素排序，使用列表创建时提供的对象比较函数进行比较，采用稳定的插入排序算法，适用于需要稳定排序或数据量较小的场合(建议数据量在5000以内)
+ * al:		ArrayList句柄
+ *
+ */
+void al_stsort(ArrayList al)
+{
+	al_p list = (al_p)container_get(al, ArrayList_t);
+	if (list != NULL && list->size > 1) {
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_lock(&(list->mut));
+		}
+		insertionsort(list->elements, 0, list->size - 1, list->cmpfunc);
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(list->mut));
 		}

@@ -108,6 +108,13 @@ extern int al_clear(ArrayList al);
 extern void al_sort(ArrayList al);
 
 /**
+ * 列表元素排序，使用列表创建时提供的对象比较函数进行比较，采用稳定的插入排序算法，适用于需要稳定排序或数据量较小的场合(建议数据量在5000以内)
+ * al:		ArrayList句柄
+ *
+ */
+extern void al_stsort(ArrayList al);
+
+/**
  * 为列表设置或清除元素的数据比较函数
  * al:		ArrayList句柄
  * cmpfunc:	比较函数，传入NULL表示清除原比较函数改为采用mr_common.h中定义的objcmp()函数
