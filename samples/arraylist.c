@@ -97,6 +97,14 @@ int main(void)
 		al_append(list, x + i);
 	show_list(list);
 
+	printf("使用迭代器迭代访问所有元素：\n");
+	Iterator it = al_iterator(list);
+	Element e;
+	printf("创建一个迭代器(%p)\n", it);
+	while ((e = al_iterate(&it)) != NULL)
+		printf("%d\t", *((int *)e));
+	printf("\n迭代结束，迭代器已经销毁(%p)\n", it);
+
 	printf("\n销毁列表，因为元素是基本数据类型，所以不需要销毁元素，否则需要先销毁所有其中的元素\n");
 	al_destroy(list);
 

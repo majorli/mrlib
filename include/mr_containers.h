@@ -24,7 +24,7 @@ typedef enum {
 	LinkedHashSet_t,
 	Stack_t,
 	Queue_t,
-	CircularQueue_t,
+	PriorityQueue_t,
 	HashMap_t,
 	LinkedHashMap_t,
 	BTree_t,

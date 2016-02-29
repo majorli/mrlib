@@ -6,7 +6,7 @@
  * 当元素超过当前表的容量时，ArrayList会自动扩展容量，但删除元素时不会自动释放空余的表空间
  * ArrayList可以保存重复的元素，但不接受NULL
  *
- * Version 0.1.1, 李斌，2016/02/25
+ * Version 1.0.0, 李斌，2016/02/29
  */
 #ifndef MR_ARRAYLIST_H
 #define MR_ARRAYLIST_H
@@ -121,5 +121,21 @@ extern void al_stsort(ArrayList al);
  *
  */
 extern void al_comparator(ArrayList al, CmpFunc cmpfunc);
+
+/**
+ * 获取ArrayList的一个迭代器
+ * al:		ArrayList句柄
+ *
+ * 返回:	列表al的迭代器，如果al==NULL则返回NULL
+ */
+extern Iterator al_iterator(ArrayList al);
+
+/**
+ * 用迭代器依次迭代访问ArrayList中的元素，直到返回NULL
+ * iterator:	ArrayList迭代器的指针
+ *
+ * 返回:	当前迭代的元素，所有元素迭代访问完成后返回NULL，同时迭代器被自动销毁
+ */
+extern Element al_iterate(Iterator *iterator);
 
 #endif

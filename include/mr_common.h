@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用工具函数、常量及宏函数
  *
- * Version 1.0.2, 李斌，2016/02/22
+ * Version 1.1.0, 李斌，2016/02/29
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -147,10 +147,30 @@ typedef int HashSet;
 typedef int LinkedHashSet;
 typedef int Stack;
 typedef int Queue;
-typedef int CircularQueue;
+typedef int PriorityQueue;
 typedef int HashMap;
 typedef int LinkedHashMap;
 typedef int BTree;
 typedef int Tree;
+
+/**
+ * 迭代器类型
+ */
+typedef enum {
+	ArrayListIterator,
+	LinkedListIterator,
+	HashSetIterator,
+	LinkedHashSetIterator,
+	HashMapIterator,
+	LinkedHashMapIterator
+} IteratorType;
+
+/**
+ * 容器迭代器结构
+ */
+typedef struct {
+	void *iterator;
+	IteratorType type;
+} Iterator_t, *Iterator;
 
 #endif
