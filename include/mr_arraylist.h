@@ -84,6 +84,16 @@ extern int al_add(ArrayList al, Element ele, size_t index);
 extern Element al_remove(ArrayList al, size_t index);
 
 /**
+ * 在列表指定位置存储一个元素，覆盖原有的元素
+ * al:		ArrayList句柄
+ * ele:		元素，不能为NULL
+ * index:	要存储元素的位置，必须在0 <= index < size的范围内
+ *
+ * 返回:	元素所在位置，如果元素为NULL或者al句柄无效，或index超出范围时返回-1
+ */
+extern int al_replace(ArrayList al, Element ele, size_t index);
+
+/**
  * 从列表中查找一个元素，元素的查找使用列表创建时提供的对象比较函数
  * al:		ArrayList句柄
  * ele:		要查找的元素

@@ -105,6 +105,11 @@ int main(void)
 		printf("%d\t", *((int *)e));
 	printf("\n迭代结束，迭代器已经销毁(%p)\n", it);
 
+	printf("把前10个元素替换成测试数组中的最后10个元素：\n");
+	for (int i = 0; i < 10; i++)
+		al_replace(list, x + 70 + i, i);
+	show_list(list);
+
 	printf("\n销毁列表，因为元素是基本数据类型，所以不需要销毁元素，否则需要先销毁所有其中的元素\n");
 	al_destroy(list);
 

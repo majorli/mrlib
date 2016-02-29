@@ -21,7 +21,8 @@ size_t al_size(ArrayList al);
 Element al_get(ArrayList al, size_t index);
 int al_append(ArrayList al, Element ele);
 int al_add(ArrayList al, Element ele, size_t index);
-void *al_remove(ArrayList al, size_t index);
+Element al_remove(ArrayList al, size_t index);
+int al_replace(ArrayList al, Element ele, size_t index);
 int al_search(ArrayList al, Element ele);
 int al_clear(ArrayList al);
 void al_sort(ArrayList al);
@@ -252,6 +253,31 @@ Element al_remove(ArrayList al, size_t index)
 			}
 			list->size--;
 		}
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
+		}
+	}
+	return ret;
+}
+
+/**
+ * 在列表指定位置存储一个元素，覆盖原有的元素
+ * al:		ArrayList句柄
+ * ele:		元素，不能为NULL
+ * index:	要存储元素的位置，必须在0 <= index < size的范围内
+ *
+ * 返回:	元素所在位置，如果元素为NULL或者al句柄无效，或index超出范围时返回-1
+ */
+int al_replace(ArrayList al, Element ele, size_t index)
+{
+	int ret = -1;
+	al_p list = (al_p)container_get(al, ArrayList_t);
+	if (ele != NULL && list != NULL) {
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_lock(&(list->mut));
+		}
+		if (index < list->size)
+			list->elements[index] = ele;
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(list->mut));
 		}
