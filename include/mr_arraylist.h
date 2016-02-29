@@ -75,7 +75,7 @@ extern int al_append(ArrayList al, Element ele);
 extern int al_add(ArrayList al, Element ele, size_t index);
 
 /**
- * 删除指定位置的元素
+ * 删除指定位置的元素，元素将被返回，其所占的内存空间不会被释放
  * al:		ArrayList句柄
  * index:	要删除的元素位置
  *
@@ -84,14 +84,14 @@ extern int al_add(ArrayList al, Element ele, size_t index);
 extern Element al_remove(ArrayList al, size_t index);
 
 /**
- * 在列表指定位置存储一个元素，覆盖原有的元素
+ * 在列表指定位置存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
  * al:		ArrayList句柄
  * ele:		元素，不能为NULL
  * index:	要存储元素的位置，必须在0 <= index < size的范围内
  *
- * 返回:	元素所在位置，如果元素为NULL或者al句柄无效，或index超出范围时返回-1
+ * 返回:	原元素，如果元素为NULL或者al句柄无效，或index超出范围时返回NULL
  */
-extern int al_replace(ArrayList al, Element ele, size_t index);
+extern Element al_replace(ArrayList al, Element ele, size_t index);
 
 /**
  * 从列表中查找一个元素，元素的查找使用列表创建时提供的对象比较函数
