@@ -29,14 +29,6 @@ void al_sort(ArrayList al);
 void al_stsort(ArrayList al);
 void al_comparator(ArrayList al, CmpFunc cmpfunc);
 
-typedef struct {							// ArrayList迭代器结构
-	ArrayList list;							// 列表句柄
-	size_t current;							// 当前迭代位置
-} al_it_t, *al_it_p;
-
-Iterator al_iterator(ArrayList al);
-Element al_iterate(Iterator *iterator);
-
 static size_t al_expand(al_p list);
 
 /**
@@ -413,45 +405,3 @@ static size_t al_expand(al_p list)
 	list->capacity = nc;
 	return nc;
 }
-
-/**
- * 获取ArrayList的一个迭代器
- * al:		ArrayList句柄
- *
- * 返回:	列表al的迭代器，如果al==NULL则返回NULL
- */
-Iterator al_iterator(ArrayList al)
-{
-	al_p list = (al_p)container_get(al, ArrayList_t);
-	Iterator ret = NULL;
-	if (list != NULL) {
-		ret = (Iterator)malloc(sizeof(Iterator_t));
-		ret->type = ArrayListIterator;
-		al_it_p it = (al_it_p)malloc(sizeof(al_it_t));
-		it->list = al;
-		it->current = 0;
-		ret->iterator = it;
-	}
-	return ret;
-}
-
-/**
- * 用迭代器依次迭代访问ArrayList中的元素，直到返回NULL
- * iterator:	ArrayList迭代器的指针
- *
- * 返回:	当前迭代的元素，所有元素迭代访问完成后或迭代出错返回NULL，同时迭代器被自动销毁
- */
-Element al_iterate(Iterator *iterator)
-{
-	Element el = NULL;
-	if (*iterator != NULL && (*iterator)->type == ArrayListIterator) {		// 判断：迭代器不为NULL且类型正确
-		al_it_p it = (al_it_p)(*iterator)->iterator;			// 获取ArrayList的迭代器
-		if ((el = al_get(it->list, it->current++)) == NULL) {		// 一次迭代，如果迭代器中的句柄无效或当前迭代已经结束则销毁迭代器
-			free(it);
-			free(*iterator);
-			*iterator = NULL;
-		}
-	}
-	return el;
-}
-

@@ -97,14 +97,6 @@ int main(void)
 		al_append(list, x + i);
 	show_list(list);
 
-	printf("使用迭代器迭代访问所有元素：\n");
-	Iterator it = al_iterator(list);
-	Element e;
-	printf("创建一个迭代器(%p)\n", it);
-	while ((e = al_iterate(&it)) != NULL)
-		printf("%d\t", *((int *)e));
-	printf("\n迭代结束，迭代器已经销毁(%p)\n", it);
-
 	printf("把前10个元素替换成测试数组中的最后10个元素：\n");
 	for (int i = 0; i < 10; i++)
 		al_replace(list, x + 70 + i, i);

@@ -132,20 +132,4 @@ extern void al_stsort(ArrayList al);
  */
 extern void al_comparator(ArrayList al, CmpFunc cmpfunc);
 
-/**
- * 获取ArrayList的一个迭代器
- * al:		ArrayList句柄
- *
- * 返回:	列表al的迭代器，如果al==NULL则返回NULL
- */
-extern Iterator al_iterator(ArrayList al);
-
-/**
- * 用迭代器依次迭代访问ArrayList中的元素，直到返回NULL
- * iterator:	ArrayList迭代器的指针
- *
- * 返回:	当前迭代的元素，所有元素迭代访问完成后返回NULL，同时迭代器被自动销毁
- */
-extern Element al_iterate(Iterator *iterator);
-
 #endif

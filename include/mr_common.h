@@ -157,8 +157,6 @@ typedef int Tree;
  * 迭代器类型
  */
 typedef enum {
-	ArrayListIterator,
-	LinkedListIterator,
 	HashSetIterator,
 	LinkedHashSetIterator,
 	HashMapIterator,
