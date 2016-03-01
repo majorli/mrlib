@@ -79,6 +79,24 @@ typedef enum {
 } ElementType;
 
 /**
+ * 基础数据类型数据的装箱函数，用于将基础类型的临时变量、普通变量、字面量等没有固定内存分配的数据装箱成为一个具有固定地址的容器元素
+ * 装箱函数使用malloc()来分配一块内存，所以装箱后获得的指针在元素不再使用后必须free()
+ */
+extern Element char_inbox(char ch);
+extern Element uchar_inbox(unsigned char ch);
+extern Element int_inbox(int i);
+extern Element uint_inbox(unsigned int i);
+extern Element short_inbox(short i);
+extern Element ushort_inbox(unsigned short i);
+extern Element long_inbox(long i);
+extern Element ulong_inbox(unsigned long i);
+extern Element llong_inbox(long long i);
+extern Element ullong_inbox(unsigned long long i);
+extern Element float_inbox(float x);
+extern Element double_inbox(double x);
+extern Element ldouble_inbox(long double x);
+
+/**
  * 元素比较函数的类型定义
  */
 typedef int (*CmpFunc)(const void *, const void *);
@@ -88,7 +106,7 @@ typedef int (*CmpFunc)(const void *, const void *);
  * NULL指针认为比非NULL指针小，两个NULL指针认为相等
  * d1,d2:	用于比较的数的指针
  *
- * 返回:	两数相等返回0，*d1>*d2返回1，*d1<*d2返回-1
+ * 返回:	两数相等返回0，*d1>*d2返回一个正整数，*d1<*d2返回一个负整数
  */
 extern int charcmp(const void *d1, const void *d2);
 extern int ucharcmp(const void *d1, const void *d2);

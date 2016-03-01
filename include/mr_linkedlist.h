@@ -5,8 +5,7 @@
  * LinkedList中存放的元素不连续存储，通过双向链接保持固定的存放顺序，删除元素不会释放元素本身的内存空间
  * LinkedList可以保存重复的元素，但不接受NULL
  * LinkedList使用自定义数据类型元素位置(LLPos)来进行随机访问，客户端程序可以通过ll_pos()/ll_head()/ll_tail()函数来获取指定的位置
- * 受链表数据结构本身特征的影响，索引定位、排序、查找的操作效率比较低，元素数量很大且需要随机访问元素时建议使用ArrayList
- * 库中所有使用索引值进行定位的函数效率一般都会低于使用LLPos定位的函数，所以建议尽量使用LLPos定位的函数访问链表
+ * 受链表数据结构本身特征的影响，链表不提供按索引随机访问的操作，而且排序、查找的操作效率比较低，元素数量很大且需要随机访问元素时建议使用ArrayList
  *
  * Version 1.0.0, 李斌，2016/02/29
  */
@@ -54,21 +53,12 @@ extern int ll_isempty(LinkedList ll);
 extern size_t ll_size(LinkedList ll);
 
 /**
- * 获取指定索引处的元素位置LLPos
- * ll:		LinkedList句柄
- * index:	元素位置索引
- *
- * 返回:	从头部开始第index(从0开始计数)个元素的LLPos，无效LinkedList句柄、空表或者无效位置时返回NULL
- */
-extern LLPos ll_goto(LinkedList ll, size_t index);
-
-/**
  * 获取表头元素的位置
  * ll:		LinkedList句柄
  *
  * 返回:	表头的元素位置，列表句柄无效或空表时返回NULL
  */
-extern LLPos ll_gohead(LinkedList ll);
+extern LLPos ll_head(LinkedList ll);
 
 /**
  * 获取表尾元素的位置
@@ -76,77 +66,49 @@ extern LLPos ll_gohead(LinkedList ll);
  *
  * 返回:	表尾的元素位置，列表句柄无效或空表时返回NULL
  */
-extern LLPos ll_gotail(LinkedList ll);
+extern LLPos ll_tail(LinkedList ll);
 
 /**
  * 获取pos位置的下一个元素的位置
- * ll:		LinkedList句柄
  * pos:		当前位置
  *
  * 返回:	下一个元素的位置，列表句柄无效或空表或已经到达表尾时返回NULL
  */
-extern LLPos ll_next(LinkedList ll, LLPos pos);
+extern LLPos ll_next(LLPos pos);
 
 /**
  * 获取pos位置的前一个元素的位置
- * ll:		LinkedList句柄
  * pos:		当前位置
  *
  * 返回:	前一个元素的位置，列表句柄无效或空表或已经到达表头时返回NULL
  */
-extern LLPos ll_prev(LinkedList ll, LLPos pos);
+extern LLPos ll_prev(LLPos pos);
 
 /**
  * 获取指定位置处的元素
- * ll:		LinkedList句柄
  * pos:		指定的元素位置
  *
  * 返回:	元素，如果位置无效或列表句柄无效则返回NULL
  */
-extern Element ll_element(LinkedList ll, LLPos pos);
+extern Element ll_get(LLPos pos);
 
 /**
- * 获取指定索引处的元素
- * ll:		LinkedList句柄
- * index:	指定的元素索引，从表头开始的第index个元素，从0开始计数
+ * 在列表指定位置之后插入一个元素
+ * ele:		元素，不能为NULL
+ * pos:		要插入元素的位置，不能为NULL
  *
- * 返回:	元素，如果索引无效或列表句柄无效则返回NULL
+ * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern Element ll_get(LinkedList ll, size_t index);
+extern LLPos ll_insert_after(Element ele, LLPos pos);
 
 /**
- * 获取表头的元素
- * ll:		LinkedList句柄
+ * 在列表指定位置之前插入一个元素
+ * ele:		元素，不能为NULL
+ * pos:		要插入元素的位置，不能为NULL
  *
- * 返回:	表头元素，如果列表句柄无效或空表则返回NULL
+ * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern Element ll_gethead(LinkedList ll);
-
-/**
- * 获取表尾的元素
- * ll:		LinkedList句柄
- *
- * 返回:	表尾元素，如果列表句柄无效或空表则返回NULL
- */
-extern Element ll_gettail(LinkedList ll);
-
-/**
- * 获取pos位置的下一个元素，此函数不会迭代当前位置
- * ll:		LinkedList句柄
- * pos:		当前位置
- *
- * 返回:	下一个元素，列表句柄无效或空表或已经到达表尾时返回NULL
- */
-extern Element ll_getnext(LinkedList ll, LLPos pos);
-
-/**
- * 获取pos位置的前一个元素，此函数不会迭代当前位置
- * ll:		LinkedList句柄
- * pos:		当前位置
- *
- * 返回:	前一个元素，列表句柄无效或空表或已经到达表头时返回NULL
- */
-extern Element ll_getprev(LinkedList ll, LLPos pos);
+extern LLPos ll_insert_before(Element ele, LLPos pos);
 
 /**
  * 在列表最后添加一个元素
@@ -158,62 +120,21 @@ extern Element ll_getprev(LinkedList ll, LLPos pos);
 extern LLPos ll_append(LinkedList ll, Element ele);
 
 /**
- * 在列表指定位置之后插入一个元素
+ * 在列表最前添加一个元素
  * ll:		LinkedList句柄
  * ele:		元素，不能为NULL
- * pos:		要插入元素的位置，pos==NULL时在列表最后添加，相当于ll_append()
  *
- * 返回:	元素插入后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
+ * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern LLPos ll_insert_after(LinkedList ll, Element ele, LLPos pos);
+extern LLPos ll_prepend(LinkedList ll, Element ele);
 
 /**
- * 在列表指定索引之后插入一个元素
- * ll:		LinkedList句柄
- * ele:		元素，不能为NULL
- * index:	要插入元素的位置索引，index >= size - 1时在列表最后添加，相当于ll_append()
+ * 删除指定位置的元素，删除成功后pos所指的节点被释放，节点失效
+ * pos:		要删除的元素位置，删除后*pos被置为NULL
  *
- * 返回:	元素插入后所在位置的索引，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回-1
+ * 返回:	删除的元素，pos无效时返回NULL
  */
-extern int ll_insert_after_idx(LinkedList ll, Element ele, size_t index);
-
-/**
- * 在列表指定位置之前插入一个元素
- * ll:		LinkedList句柄
- * ele:		元素，不能为NULL
- * pos:		要插入元素的位置，pos==NULL时在列表最后添加，相当于ll_append()
- *
- * 返回:	元素插入后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
- */
-extern LLPos ll_insert_before(LinkedList ll, Element ele, LLPos pos);
-
-/**
- * 在列表指定索引之前插入一个元素
- * ll:		LinkedList句柄
- * ele:		元素，不能为NULL
- * index:	要插入元素的位置索引，index >= size时在列表最后添加，相当于ll_append()
- *
- * 返回:	元素插入后所在位置的索引，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回-1
- */
-extern int ll_insert_before_idx(LinkedList ll, Element ele, size_t index);
-
-/**
- * 删除指定位置的元素，删除成功后位置将指向下一个元素
- * ll:		LinkedList句柄
- * pos:		要删除的元素位置
- *
- * 返回:	删除的元素，ll句柄无效或pos无效时返回NULL
- */
-extern Element ll_remove(LinkedList ll, LLPos *pos);
-
-/**
- * 删除指定索引处的元素
- * ll:		LinkedList句柄
- * index:	要删除的元素所处的索引
- *
- * 返回:	删除的元素，ll句柄无效或index超范围时返回NULL
- */
-extern Element ll_remove_idx(LinkedList ll, size_t index);
+extern Element ll_remove(LLPos *pos);
 
 /**
  * 在指定位置存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
@@ -224,16 +145,6 @@ extern Element ll_remove_idx(LinkedList ll, size_t index);
  * 返回:	原元素，如果元素为NULL或者ll句柄无效，或位置无效时返回NULL
  */
 extern Element ll_replace(LinkedList ll, Element ele, LLPos pos);
-
-/**
- * 在指定索引处存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
- * ll:		LinkedList句柄
- * ele:		元素，不能为NULL
- * index:	要存储元素所在位置的索引，必须在0 <= index < size的范围内
- *
- * 返回:	原元素，如果元素为NULL或者ll句柄无效，或index超出范围时返回NULL
- */
-extern Element ll_replace_idx(LinkedList ll, Element ele, size_t index);
 
 /**
  * 从列表中查找一个元素，元素的查找使用列表创建时提供的对象比较函数

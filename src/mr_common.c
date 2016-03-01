@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 
 #include "mr_common.h"
 
@@ -9,7 +10,7 @@ int __MultiThreads__ = 1;
  * NULL指针认为比非NULL指针小，两个NULL指针认为相等
  * d1,d2:	用于比较的数的指针
  *
- * 返回:	两数相等返回0，*d1>*d2返回1，*d1<*d2返回-1
+ * 返回:	两数相等返回0，*d1>*d2返回一个正整数，*d1<*d2返回一个负整数
  */
 int charcmp(const void *d1, const void *d2);
 int ucharcmp(const void *d1, const void *d2);
@@ -29,6 +30,23 @@ int objcmp(const void *d1, const void *d2);
 CmpFunc default_cmpfunc(ElementType type);
 void quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
 void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc);
+
+/**
+ * 基础数据类型数据的装箱函数，用于将基础类型的临时变量、普通变量、字面量等没有固定内存分配的数据装箱成为一个具有固定地址的容器元素
+ */
+Element char_inbox(char ch);
+Element uchar_inbox(unsigned char ch);
+Element int_inbox(int i);
+Element uint_inbox(unsigned int i);
+Element short_inbox(short i);
+Element ushort_inbox(unsigned short i);
+Element long_inbox(long i);
+Element ulong_inbox(unsigned long i);
+Element llong_inbox(long long i);
+Element ullong_inbox(unsigned long long i);
+Element float_inbox(float x);
+Element double_inbox(double x);
+Element ldouble_inbox(long double x);
 
 int charcmp(const void *d1, const void *d2)
 {
@@ -483,3 +501,98 @@ void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc)
 		a[j] = temp;
 	}
 }
+
+/**
+ * 基础数据类型数据的装箱函数，用于将基础类型的临时变量、普通变量、字面量等没有固定内存分配的数据装箱成为一个具有固定地址的容器元素
+ */
+Element char_inbox(char ch)
+{
+	char *ret = (char *)malloc(sizeof(char));
+	*ret = ch;
+	return ret;
+}
+
+Element uchar_inbox(unsigned char ch)
+{
+	unsigned char *ret = (unsigned char *)malloc(sizeof(unsigned char));
+	*ret = ch;
+	return ret;
+}
+
+Element int_inbox(int i)
+{
+	int *ret = (int *)malloc(sizeof(int));
+	*ret = i;
+	return ret;
+}
+
+Element uint_inbox(unsigned int i)
+{
+	unsigned int *ret = (unsigned int *)malloc(sizeof(unsigned int));
+	*ret = i;
+	return ret;
+}
+
+Element short_inbox(short i)
+{
+	short *ret = (short *)malloc(sizeof(short));
+	*ret = i;
+	return ret;
+}
+
+Element ushort_inbox(unsigned short i)
+{
+	unsigned short *ret = (unsigned short *)malloc(sizeof(unsigned short));
+	*ret = i;
+	return ret;
+}
+
+Element long_inbox(long i)
+{
+	long *ret = (long *)malloc(sizeof(long));
+	*ret = i;
+	return ret;
+}
+
+Element ulong_inbox(unsigned long i)
+{
+	unsigned long *ret = (unsigned long *)malloc(sizeof(unsigned long));
+	*ret = i;
+	return ret;
+}
+
+Element llong_inbox(long long i)
+{
+	long long *ret = (long long *)malloc(sizeof(long long));
+	*ret = i;
+	return ret;
+}
+
+Element ullong_inbox(unsigned long long i)
+{
+	unsigned long long *ret = (unsigned long long *)malloc(sizeof(unsigned long long));
+	*ret = i;
+	return ret;
+}
+
+Element float_inbox(float x)
+{
+	float *ret = (float *)malloc(sizeof(float));
+	*ret = x;
+	return ret;
+}
+
+Element double_inbox(double x)
+{
+	double *ret = (double *)malloc(sizeof(double));
+	*ret = x;
+	return ret;
+}
+
+Element ldouble_inbox(long double x)
+{
+	long double *ret = (long double *)malloc(sizeof(long double));
+	*ret = x;
+	return ret;
+}
+

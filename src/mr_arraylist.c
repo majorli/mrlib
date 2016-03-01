@@ -46,14 +46,14 @@ ArrayList al_create(ElementType type, CmpFunc cmpfunc)
 	list->elements = (Element *)malloc(SECTION_SIZE * sizeof(Element));
 	list->capacity = SECTION_SIZE;
 	list->size = 0;
-	if (cmpfunc == NULL) {
+	if (cmpfunc == NULL)
 		list->cmpfunc = default_cmpfunc(type);
-	} else {
+	else
 		list->cmpfunc = cmpfunc;
-	}
 	ret = container_retrieve(list, ArrayList_t);
 	if (ret == -1) {
 		free(list->elements);
+		free(list);
 	} else {
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_init(&(list->mut), NULL);
@@ -73,7 +73,11 @@ int al_destroy(ArrayList al)
 	int ret = -1;
 	al_p list = (al_p)container_release(al, ArrayList_t);
 	if (list != NULL) {
-		if (__MultiThreads__) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		free(list->elements);
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
 			pthread_mutex_destroy(&(list->mut));
 		}
 		free(list);
@@ -93,17 +97,11 @@ int al_isempty(ArrayList al)
 	int ret = -1;
 	al_p list = (al_p)container_get(al, ArrayList_t);
 	if (list != NULL) {
-		if (__MultiThreads__ == 1) {
+		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(list->mut));
-		}
-		if (list->size > 0) {
-			ret = 1;
-		} else {
-			ret = 0;
-		}
-		if (__MultiThreads__ == 1) {
+		ret = (list->size > 0);
+		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
-		}
 	}
 	return ret;
 }
@@ -119,13 +117,11 @@ size_t al_size(ArrayList al)
 	size_t ret = 0;
 	al_p list = (al_p)container_get(al, ArrayList_t);
 	if (list != NULL) {
-		if (__MultiThreads__ == 1) {
+		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(list->mut));
-		}
 		ret = list->size;
-		if (__MultiThreads__ == 1) {
+		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
-		}
 	}
 	return ret;
 }
