@@ -450,59 +450,6 @@ CmpFunc default_cmpfunc(ElementType type)
 }
 
 /**
- * 对一组元素进行快速排序
- * a:		待排序元素数组
- * left:	左边界坐标
- * right:	右边界坐标
- * cmpfunc:	比较函数
- *
- */
-void quicksort(Element *a, int left, int right, CmpFunc cmpfunc)
-{
-	if(left >= right)
-		return;
-	int i = left;
-	int j = right;
-	Element key = a[left];
-	while (i < j) {
-		while (i < j && cmpfunc(key, a[j]) <= 0)
-			j--;
-		if (i < j)
-			a[i++] = a[j];
-		while (i < j && cmpfunc(key, a[i]) >= 0)
-			i++;
-		if (i < j)
-			a[j--] = a[i];
-	}
-	a[i] = key;
-	quicksort(a, left, i - 1, cmpfunc);
-	quicksort(a, i + 1, right, cmpfunc);
-	return;
-}
-
-/**
- * 对一组元素进行插入排序
- * a:		待排序元素数组
- * left:	左边界坐标
- * right:	右边界坐标
- * cmpfunc:	比较函数
- *
- */
-void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc)
-{
-	int i, j;
-	for (i = left + 1; i <= right; i++) {
-		Element temp = a[i];
-		j = i;
-		while (j > 0 && cmpfunc(a[j - 1], temp) > 0) {
-			a[j] = a[j - 1];
-			j--;
-		}
-		a[j] = temp;
-	}
-}
-
-/**
  * 基础数据类型数据的装箱函数，用于将基础类型的临时变量、普通变量、字面量等没有固定内存分配的数据装箱成为一个具有固定地址的容器元素
  */
 Element char_inbox(char ch)

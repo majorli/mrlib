@@ -1,3 +1,11 @@
+- 2016/3/2
+	- 修正了ArrayList中的错误，完成LinkedList的开发和测试
+	- 快速排序和插入排序的实现移到`al_arraylist.c`中实现并隐藏
+	- 增加了函数指针类型`typedef void (*onRemove)(void *)`，用于容器清空时对被清除节点中元素的处理
+	- 取消了ArrayList和LinkedList的`xx_clear()`函数，因为节点元素内存释放的问题，一次性清空所有节点很可能导致内存分配的问题，不安全，所以取消
+	- 容器的`xx_clear()`函数改为`xx_remove(.., onremove onRemove)`，清除节点时用来进行元素处理，默认(参数为NULL)不做任何操作，最常见的可以传入标准库函数`free()`
+	- LinkedList的节点位置类型`LLPos`改名为节点类型`LLNode`，以便更符合数据结构的习惯叫法
+	- 增加容器的逆向搜索函数`xx_rsearch()`
 - 2016/3/1
 	- 在`mr_common`中增加一系列基础数据类型数据装箱函数`xx_inbox()`，没有固定地址的基础类型数据(临时变量、字面量等)在置入容器前使用对应的装箱函数进行装箱以获得一个固定的内存指针
 	- 所有容器中的元素在`xx_remove()`或`xx_replace()`函数后会返回元素指针，如果指针是由客户端程序通过`malloc()`,`realloc()`,`calloc()`函数分配的或通过`xx_inbox()`函数装箱获得的，那么客户端程序必须自行释放这些指针

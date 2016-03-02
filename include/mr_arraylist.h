@@ -84,6 +84,14 @@ extern int al_add(ArrayList al, Element ele, size_t index);
 extern Element al_remove(ArrayList al, size_t index);
 
 /**
+ * 删除ArrayList中所有的元素，被清除的元素用onremove函数进行后续处理
+ * al:		ArrayList句柄
+ * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
+ *
+ */
+extern void al_removeall(ArrayList al, onRemove onremove);
+
+/**
  * 在列表指定位置存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
  * al:		ArrayList句柄
  * ele:		元素，不能为NULL
@@ -103,12 +111,13 @@ extern Element al_replace(ArrayList al, Element ele, size_t index);
 extern int al_search(ArrayList al, Element ele);
 
 /**
- * 清空列表，清空列表并不会释放列表所用的内存空间
+ * 从列表中逆向查找一个元素，元素的查找使用列表创建时提供的对象比较函数
  * al:		ArrayList句柄
+ * ele:		要查找的元素
  *
- * 返回:	清空成功返回被清空的元素个数，al句柄无效或清空不成功返回-1
+ * 返回:	查找到的时候返回元素位置，有多个相同元素时返回最后面的那个，al句柄无效或ele为NULL或查找不到返回-1
  */
-extern int al_clear(ArrayList al);
+extern int al_rsearch(ArrayList al, Element ele);
 
 /**
  * 列表元素排序，使用列表创建时提供的对象比较函数进行比较，采用快速排序算法

@@ -102,6 +102,11 @@ extern Element ldouble_inbox(long double x);
 typedef int (*CmpFunc)(const void *, const void *);
 
 /**
+ * 容器清空时用于处理被清除的节点中元素的处理
+ */
+typedef void (*onRemove)(void *);
+
+/**
  * (unsigned) char,(unsigned) short,(unsigned) int,(unsigned) long,(unsigned) long long,float,double,long double,string的比较函数，传入数据的指针进行比较
  * NULL指针认为比非NULL指针小，两个NULL指针认为相等
  * d1,d2:	用于比较的数的指针
@@ -135,26 +140,6 @@ extern int objcmp(const void *d1, const void *d2);
  * 根据元素类型获取默认的比较函数
  */
 extern CmpFunc default_cmpfunc(ElementType type);
-
-/**
- * 对一组元素进行快速排序
- * a:		待排序元素数组
- * left:	左边界坐标
- * right:	右边界坐标
- * cmpfunc:	比较函数
- *
- */
-extern void quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
-
-/**
- * 对一组元素进行插入排序
- * a:		待排序元素数组
- * left:	左边界坐标
- * right:	右边界坐标
- * cmpfunc:	比较函数
- *
- */
-extern void insertionsort(Element *a, int left, int right, CmpFunc cmpfunc);
 
 /**
  * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄

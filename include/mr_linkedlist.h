@@ -1,13 +1,13 @@
 /**
  * "mr_linkedlist.h"，链表数据结构处理函数
  *
- * mr_linkedlist库提供一种基于双向链表构造的线性表数据结构，用于连续、依次和有序地存放元素。
- * LinkedList中存放的元素不连续存储，通过双向链接保持固定的存放顺序，删除元素不会释放元素本身的内存空间
+ * mr_linkedlist库提供一种基于双向链表构造的线性表数据结构，用于连续、依次和有序地存放元素，元素被包装在节点LLNode中
+ * LinkedList中的节点不连续存储，通过双向链接保持固定的存放顺序，删除节点不会释放元素本身的内存空间
  * LinkedList可以保存重复的元素，但不接受NULL
- * LinkedList使用自定义数据类型元素位置(LLPos)来进行随机访问，客户端程序可以通过ll_pos()/ll_head()/ll_tail()函数来获取指定的位置
- * 受链表数据结构本身特征的影响，链表不提供按索引随机访问的操作，而且排序、查找的操作效率比较低，元素数量很大且需要随机访问元素时建议使用ArrayList
+ * LinkedList使用自定义数据类型节点(LLNode)来进行随机访问，客户端程序可以通过ll_head()/ll_tail()/ll_next()/ll_prev()函数来获取指定的节点，通过ll_get()函数获得节点中的元素
+ * 受链表数据结构本身特征的影响，链表不提供按索引随机访问的操作，查找的效率比较低，元素数量很大且需要随机访问元素时建议使用ArrayList
  *
- * Version 1.0.0, 李斌，2016/02/29
+ * Version 1.0.1, 李斌，2016/03/02
  */
 #ifndef MR_LINKEDLIST_H
 #define MR_LINKEDLIST_H
@@ -17,7 +17,7 @@
 /**
  * LinkedList中元素的位置
  */
-typedef void *LLPos;
+typedef void *LLNode;
 
 /**
  * 创建一个LinkedList，返回句柄
@@ -58,7 +58,7 @@ extern size_t ll_size(LinkedList ll);
  *
  * 返回:	表头的元素位置，列表句柄无效或空表时返回NULL
  */
-extern LLPos ll_head(LinkedList ll);
+extern LLNode ll_head(LinkedList ll);
 
 /**
  * 获取表尾元素的位置
@@ -66,7 +66,7 @@ extern LLPos ll_head(LinkedList ll);
  *
  * 返回:	表尾的元素位置，列表句柄无效或空表时返回NULL
  */
-extern LLPos ll_tail(LinkedList ll);
+extern LLNode ll_tail(LinkedList ll);
 
 /**
  * 获取pos位置的下一个元素的位置
@@ -74,7 +74,7 @@ extern LLPos ll_tail(LinkedList ll);
  *
  * 返回:	下一个元素的位置，列表句柄无效或空表或已经到达表尾时返回NULL
  */
-extern LLPos ll_next(LLPos pos);
+extern LLNode ll_next(LLNode pos);
 
 /**
  * 获取pos位置的前一个元素的位置
@@ -82,7 +82,7 @@ extern LLPos ll_next(LLPos pos);
  *
  * 返回:	前一个元素的位置，列表句柄无效或空表或已经到达表头时返回NULL
  */
-extern LLPos ll_prev(LLPos pos);
+extern LLNode ll_prev(LLNode pos);
 
 /**
  * 获取指定位置处的元素
@@ -90,25 +90,25 @@ extern LLPos ll_prev(LLPos pos);
  *
  * 返回:	元素，如果位置无效或列表句柄无效则返回NULL
  */
-extern Element ll_get(LLPos pos);
+extern Element ll_get(LLNode pos);
 
 /**
  * 在列表指定位置之后插入一个元素
- * ele:		元素，不能为NULL
  * pos:		要插入元素的位置，不能为NULL
+ * ele:		元素，不能为NULL
  *
  * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern LLPos ll_insert_after(Element ele, LLPos pos);
+extern LLNode ll_insert_after(LLNode pos, Element ele);
 
 /**
  * 在列表指定位置之前插入一个元素
- * ele:		元素，不能为NULL
  * pos:		要插入元素的位置，不能为NULL
+ * ele:		元素，不能为NULL
  *
  * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern LLPos ll_insert_before(Element ele, LLPos pos);
+extern LLNode ll_insert_before(LLNode pos, Element ele);
 
 /**
  * 在列表最后添加一个元素
@@ -117,7 +117,7 @@ extern LLPos ll_insert_before(Element ele, LLPos pos);
  *
  * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern LLPos ll_append(LinkedList ll, Element ele);
+extern LLNode ll_append(LinkedList ll, Element ele);
 
 /**
  * 在列表最前添加一个元素
@@ -126,42 +126,50 @@ extern LLPos ll_append(LinkedList ll, Element ele);
  *
  * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-extern LLPos ll_prepend(LinkedList ll, Element ele);
+extern LLNode ll_prepend(LinkedList ll, Element ele);
 
 /**
  * 删除指定位置的元素，删除成功后pos所指的节点被释放，节点失效
- * pos:		要删除的元素位置，删除后*pos被置为NULL
+ * pos:		要删除的节点，删除后*pos被置为NULL
  *
  * 返回:	删除的元素，pos无效时返回NULL
  */
-extern Element ll_remove(LLPos *pos);
+extern Element ll_remove(LLNode *pos);
+
+/**
+ * 删除LinkedList中所有的元素，被清除的元素用onremove函数进行后续处理
+ * ll:		LinkedList句柄
+ * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
+ *
+ */
+extern void ll_removeall(LinkedList ll, onRemove onremove);
 
 /**
  * 在指定位置存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
- * ll:		LinkedList句柄
+ * pos:		要存储元素的节点
  * ele:		元素，不能为NULL
- * pos:		要存储元素的位置
  *
- * 返回:	原元素，如果元素为NULL或者ll句柄无效，或位置无效时返回NULL
+ * 返回:	原元素，如果元素为NULL或者节点无效时返回NULL
  */
-extern Element ll_replace(LinkedList ll, Element ele, LLPos pos);
+extern Element ll_replace(LLNode pos, Element ele);
 
 /**
  * 从列表中查找一个元素，元素的查找使用列表创建时提供的对象比较函数
  * ll:		LinkedList句柄
  * ele:		要查找的元素
  *
- * 返回:	查找到的时候返回元素位置，有多个相同元素时返回最前面的那个，ll句柄无效或ele为NULL或查找不到返回-1
+ * 返回:	查找到的时候返回节点，有多个相同元素时返回最前面的那个，ll句柄无效或ele为NULL或查找不到返回-1
  */
-extern LLPos ll_search(LinkedList ll, Element ele);
+extern LLNode ll_search(LinkedList ll, Element ele);
 
 /**
- * 清空列表，清空列表并不会释放列表所用的内存空间
+ * 从列表中反向一个元素，元素的查找使用列表创建时提供的对象比较函数
  * ll:		LinkedList句柄
+ * ele:		要查找的元素
  *
- * 返回:	清空成功返回被清空的元素个数，ll句柄无效或清空不成功返回-1
+ * 返回:	查找到的时候返回节点，有多个相同元素时返回最后面的那个，ll句柄无效或ele为NULL或查找不到返回-1
  */
-extern int ll_clear(LinkedList ll);
+extern LLNode ll_rsearch(LinkedList ll, Element ele);
 
 /**
  * 列表元素排序，使用列表创建时提供的对象比较函数进行比较，采用快速排序算法

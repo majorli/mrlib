@@ -8,24 +8,23 @@ LinkedList ll_create(ElementType type, CmpFunc cmpfunc);
 int ll_destroy(LinkedList ll);
 int ll_isempty(LinkedList ll);
 size_t ll_size(LinkedList ll);
-LLPos ll_head(LinkedList ll);
-LLPos ll_tail(LinkedList ll);
-LLPos ll_next(LLPos pos);
-LLPos ll_prev(LLPos pos);
-Element ll_get(LLPos pos);
-LLPos ll_insert_after(Element ele, LLPos pos);
-LLPos ll_insert_before(Element ele, LLPos pos);
-LLPos ll_append(LinkedList ll, Element ele);
-LLPos ll_prepend(LinkedList ll, Element ele);
-Element ll_remove(LLPos *pos);
-// TODO --------------------------------------------------------
-Element ll_replace(LinkedList ll, Element ele, LLPos pos);
-LLPos ll_search(LinkedList ll, Element ele);
-int ll_clear(LinkedList ll);
+LLNode ll_head(LinkedList ll);
+LLNode ll_tail(LinkedList ll);
+LLNode ll_next(LLNode pos);
+LLNode ll_prev(LLNode pos);
+Element ll_get(LLNode pos);
+LLNode ll_insert_after(LLNode pos, Element ele);
+LLNode ll_insert_before(LLNode pos, Element ele);
+LLNode ll_append(LinkedList ll, Element ele);
+LLNode ll_prepend(LinkedList ll, Element ele);
+Element ll_remove(LLNode *pos);
+void ll_removeall(LinkedList ll, onRemove onremove);
+Element ll_replace(LLNode pos, Element ele);
+LLNode ll_search(LinkedList ll, Element ele);
+LLNode ll_rsearch(LinkedList ll, Element ele);
 void ll_sort(LinkedList ll);
 void ll_stsort(LinkedList ll);
 void ll_comparator(LinkedList ll, CmpFunc cmpfunc);
-// -------------------------------------------------------------
 
 /**
  * 链表节点结构
@@ -48,10 +47,12 @@ typedef struct {
 	pthread_mutex_t mut;		// 共享锁
 } ll_t, *ll_p;
 
-static void __ll_init(ll_p list, ll_node_p node);				// 空表第一次插入节点
-static void __ll_insert_after(ll_p list, ll_node_p pos, ll_node_p node);	// 在指定位置之后插入节点
-static void __ll_insert_before(ll_p list, ll_node_p pos, ll_node_p node);	// 在指定位置之前插入节点
-static void __ll_remove(ll_p list, ll_node_p pos);				// 删除指定位置的节点
+static void __ll_init(ll_p list, ll_node_p node);					// 空表第一次插入节点
+static void __ll_insert_after(ll_p list, ll_node_p pos, ll_node_p node);		// 在指定位置之后插入节点
+static void __ll_insert_before(ll_p list, ll_node_p pos, ll_node_p node);		// 在指定位置之前插入节点
+static void __ll_remove(ll_p list, ll_node_p pos);					// 删除指定位置的节点
+static void __ll_quicksort(ll_node_p left, ll_node_p right, CmpFunc cmpfunc);		// 快速排序
+static void __ll_insertionsort(ll_node_p left, ll_node_p right, CmpFunc cmpfunc);	// 插入排序
 
 /**
  * 创建一个LinkedList，返回句柄
@@ -120,11 +121,11 @@ int ll_destroy(LinkedList ll)
 int ll_isempty(LinkedList ll)
 {
 	int ret = -1;
-	ll_p list = (ll_p)container_release(ll, LinkedList_t);
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
 	if (list != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(list->mut));
-		ret = (list->head != NULL);
+		ret = (list->head == NULL);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
@@ -161,9 +162,9 @@ size_t ll_size(LinkedList ll)
  *
  * 返回:	表头的元素位置，列表句柄无效或空表时返回NULL
  */
-LLPos ll_head(LinkedList ll)
+LLNode ll_head(LinkedList ll)
 {
-	LLPos ret = NULL;
+	LLNode ret = NULL;
 	ll_p list = (ll_p)container_get(ll, LinkedList_t);
 	if (list != NULL) {
 		if (__MultiThreads__ == 1)
@@ -181,9 +182,9 @@ LLPos ll_head(LinkedList ll)
  *
  * 返回:	表尾的元素位置，列表句柄无效或空表时返回NULL
  */
-LLPos ll_tail(LinkedList ll)
+LLNode ll_tail(LinkedList ll)
 {
-	LLPos ret = NULL;
+	LLNode ret = NULL;
 	ll_p list = (ll_p)container_get(ll, LinkedList_t);
 	if (list != NULL) {
 		if (__MultiThreads__ == 1)
@@ -201,7 +202,7 @@ LLPos ll_tail(LinkedList ll)
  *
  * 返回:	下一个元素的位置，pos==NULL或已经到达表尾时返回NULL
  */
-LLPos ll_next(LLPos pos)
+LLNode ll_next(LLNode pos)
 {
 	ll_node_p ret = NULL;
 	ll_node_p p = (ll_node_p)pos;
@@ -213,7 +214,7 @@ LLPos ll_next(LLPos pos)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
@@ -222,7 +223,7 @@ LLPos ll_next(LLPos pos)
  *
  * 返回:	前一个元素的位置，pos==NULL或已经到达表头时返回NULL
  */
-LLPos ll_prev(LLPos pos)
+LLNode ll_prev(LLNode pos)
 {
 	ll_node_p ret = NULL;
 	ll_node_p p = (ll_node_p)pos;
@@ -234,7 +235,7 @@ LLPos ll_prev(LLPos pos)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
@@ -243,7 +244,7 @@ LLPos ll_prev(LLPos pos)
  *
  * 返回:	元素，如果位置无效或列表句柄无效则返回NULL
  */
-Element ll_get(LLPos pos)
+Element ll_get(LLNode pos)
 {
 	Element ret = NULL;
 	ll_node_p p = (ll_node_p)pos;
@@ -260,12 +261,12 @@ Element ll_get(LLPos pos)
 
 /**
  * 在列表指定位置之后插入一个元素
- * ele:		元素，不能为NULL
  * pos:		要插入元素的位置，不能为NULL
+ * ele:		元素，不能为NULL
  *
  * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-LLPos ll_insert_after(Element ele, LLPos pos)
+LLNode ll_insert_after(LLNode pos, Element ele)
 {
 	ll_node_p ret = NULL;
 	ll_node_p p = (ll_node_p)pos;
@@ -276,24 +277,21 @@ LLPos ll_insert_after(Element ele, LLPos pos)
 		ret = (ll_node_p)malloc(sizeof(ll_node_t));
 		ret->element = ele;
 		ret->list = p->list;
-		if (list->head == NULL)				// 空表，添加首个节点
-			__ll_init(list, ret);
-		else						// 非空表，在指定位置之后插入节点
-			__ll_insert_after(list, p, ret);
+		__ll_insert_after(list, p, ret);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
  * 在列表指定位置之前插入一个元素
- * ele:		元素，不能为NULL
  * pos:		要插入元素的位置，不能为NULL
+ * ele:		元素，不能为NULL
  *
  * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-LLPos ll_insert_before(Element ele, LLPos pos)
+LLNode ll_insert_before(LLNode pos, Element ele)
 {
 	ll_node_p ret = NULL;
 	ll_node_p p = (ll_node_p)pos;
@@ -304,14 +302,11 @@ LLPos ll_insert_before(Element ele, LLPos pos)
 		ret = (ll_node_p)malloc(sizeof(ll_node_t));
 		ret->element = ele;
 		ret->list = p->list;
-		if (list->head == NULL)				// 空表，添加首个节点
-			__ll_init(list, ret);
-		else						// 非空表，在指定位置之前插入节点
-			__ll_insert_before(list, p, ret);
+		__ll_insert_before(list, p, ret);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
@@ -321,7 +316,7 @@ LLPos ll_insert_before(Element ele, LLPos pos)
  *
  * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-LLPos ll_append(LinkedList ll, Element ele)
+LLNode ll_append(LinkedList ll, Element ele)
 {
 	ll_node_p ret = NULL;
 	ll_p list = (ll_p)container_get(ll, LinkedList_t);
@@ -338,7 +333,7 @@ LLPos ll_append(LinkedList ll, Element ele)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
@@ -348,7 +343,7 @@ LLPos ll_append(LinkedList ll, Element ele)
  *
  * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
-LLPos ll_prepend(LinkedList ll, Element ele)
+LLNode ll_prepend(LinkedList ll, Element ele)
 {
 	ll_node_p ret = NULL;
 	ll_p list = (ll_p)container_get(ll, LinkedList_t);
@@ -365,16 +360,16 @@ LLPos ll_prepend(LinkedList ll, Element ele)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
-	return (LLPos)ret;
+	return (LLNode)ret;
 }
 
 /**
  * 删除指定位置的元素，删除成功后pos所指的节点被释放，节点失效
- * pos:		要删除的元素位置，删除后*pos被置为NULL
+ * pos:		要删除的节点，删除后*pos被置为NULL
  *
  * 返回:	删除的元素，ll无效或*pos无效时返回NULL
  */
-Element ll_remove(LLPos *pos)
+Element ll_remove(LLNode *pos)
 {
 	Element ret = NULL;
 	ll_node_p p = (ll_node_p)(*pos);
@@ -390,18 +385,54 @@ Element ll_remove(LLPos *pos)
 	}
 	return ret;
 }
-// TODO -------------------------------------------------------------------------------------
+
+/**
+ * 删除LinkedList中所有的元素，被清除的元素用onremove函数进行后续处理
+ * ll:		LinkedList句柄
+ * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
+ *
+ */
+void ll_removeall(LinkedList ll, onRemove onremove)
+{
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		ll_node_p p = list->head;
+		while (p != NULL) {
+			ll_node_p n = p->next;
+			if (onremove != NULL)
+				onremove(p->element);
+			free(p);
+			p = n;
+		}
+		list->head = NULL;
+		list->tail = NULL;
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(list->mut));
+	}
+}
+
 /**
  * 在指定位置存储一个元素，覆盖原有的元素，原元素将被返回，其所占的内存空间不会被释放
- * ll:		LinkedList句柄
+ * pos:		要存储元素的节点
  * ele:		元素，不能为NULL
- * pos:		要存储元素的位置
  *
- * 返回:	原元素，如果元素为NULL或者ll句柄无效，或位置无效时返回NULL
+ * 返回:	原元素，如果元素为NULL或者节点无效时返回NULL
  */
-Element ll_replace(LinkedList ll, Element ele, LLPos pos)
+Element ll_replace(LLNode pos, Element ele)
 {
-	LLPos ret = NULL;
+	Element ret = NULL;
+	ll_node_p p = (ll_node_p)pos;
+	ll_p list;
+	if (p != NULL && ele != NULL && (list = (ll_p)container_get(p->list, LinkedList_t)) != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		ret = p->element;
+		p->element = ele;
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(list->mut));
+	}
 	return ret;
 }
 
@@ -410,24 +441,51 @@ Element ll_replace(LinkedList ll, Element ele, LLPos pos)
  * ll:		LinkedList句柄
  * ele:		要查找的元素
  *
- * 返回:	查找到的时候返回元素位置，有多个相同元素时返回最前面的那个，ll句柄无效或ele为NULL或查找不到返回-1
+ * 返回:	查找到的时候返回节点，有多个相同元素时返回最前面的那个，ll句柄无效或ele为NULL或查找不到返回-1
  */
-LLPos ll_search(LinkedList ll, Element ele)
+LLNode ll_search(LinkedList ll, Element ele)
 {
-	LLPos ret = NULL;
-	return ret;
+	ll_node_p ret = NULL;
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL && ele != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		ret = list->head;
+		while (ret != NULL) {
+			if (list->cmpfunc(ret->element, ele) == 0)
+				break;
+			ret = ret->next;
+		}
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(list->mut));
+	}
+	return (LLNode)ret;
 }
 
 /**
- * 清空列表，清空列表并不会释放列表所用的内存空间
+ * 从列表中反向一个元素，元素的查找使用列表创建时提供的对象比较函数
  * ll:		LinkedList句柄
+ * ele:		要查找的元素
  *
- * 返回:	清空成功返回被清空的元素个数，ll句柄无效或清空不成功返回-1
+ * 返回:	查找到的时候返回节点，有多个相同元素时返回最后面的那个，ll句柄无效或ele为NULL或查找不到返回-1
  */
-int ll_clear(LinkedList ll)
+LLNode ll_rsearch(LinkedList ll, Element ele)
 {
-	int ret = -1;
-	return ret;
+	ll_node_p ret = NULL;
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL && ele != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		ret = list->tail;
+		while (ret != NULL) {
+			if (list->cmpfunc(ret->element, ele) == 0)
+				break;
+			ret = ret->prev;
+		}
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(list->mut));
+	}
+	return (LLNode)ret;
 }
 
 /**
@@ -437,7 +495,16 @@ int ll_clear(LinkedList ll)
  */
 void ll_sort(LinkedList ll)
 {
-	return;
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL && list->head != NULL && list->head != list->tail) {
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_lock(&(list->mut));
+		}
+		__ll_quicksort(list->head, list->tail, list->cmpfunc);
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
+		}
+	}
 }
 
 /**
@@ -447,7 +514,16 @@ void ll_sort(LinkedList ll)
  */
 void ll_stsort(LinkedList ll)
 {
-	return;
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL && list->head != NULL && list->head != list->tail) {
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_lock(&(list->mut));
+		}
+		__ll_insertionsort(list->head, list->tail, list->cmpfunc);
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
+		}
+	}
 }
 
 /**
@@ -458,7 +534,20 @@ void ll_stsort(LinkedList ll)
  */
 void ll_comparator(LinkedList ll, CmpFunc cmpfunc)
 {
-	return;
+	ll_p list = (ll_p)container_get(ll, LinkedList_t);
+	if (list != NULL) {
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_lock(&(list->mut));
+		}
+		if (cmpfunc == NULL) {
+			list->cmpfunc = default_cmpfunc(list->type);
+		} else {
+			list->cmpfunc = cmpfunc;
+		}
+		if (__MultiThreads__ == 1) {
+			pthread_mutex_unlock(&(list->mut));
+		}
+	}
 }
 
 static void __ll_init(ll_p list, ll_node_p node)				// 空表第一次插入节点
@@ -502,4 +591,62 @@ static void __ll_remove(ll_p list, ll_node_p pos)				// 删除指定位置的节
 	else
 		list->tail = pos->prev;
 	free(pos);
+}
+
+/**
+ * 对一组元素进行快速排序
+ * left:	左边界节点
+ * right:	右边界节点
+ * cmpfunc:	比较函数
+ *
+ */
+static void __ll_quicksort(ll_node_p left, ll_node_p right, CmpFunc cmpfunc)
+{
+	if(left == right)
+		return;
+	ll_node_p i = left;
+	ll_node_p j = right;
+	Element key = left->element;
+	while (i != j) {
+		while (i != j && cmpfunc(key, j->element) <= 0)
+			j = j->prev;
+		if (i != j) {
+			i->element = j->element;
+			i = i->next;
+		}
+		while (i != j && cmpfunc(key, i->element) >= 0)
+			i = i->next;
+		if (i != j) {
+			j->element = i->element;
+			j = j->prev;
+		}
+	}
+	i->element = key;
+	if (left != i)
+		__ll_quicksort(left, i->prev, cmpfunc);
+	if (right != i)
+		__ll_quicksort(i->next, right, cmpfunc);
+}
+
+/**
+ * 对一组元素进行插入排序
+ * left:	左边界节点
+ * right:	右边界节点
+ * cmpfunc:	比较函数
+ *
+ */
+static void __ll_insertionsort(ll_node_p left, ll_node_p right, CmpFunc cmpfunc)
+{
+	ll_node_p i, j;
+	i = left->next;
+	while (i != right->next) {
+		Element temp = i->element;
+		j = i;
+		while (j != left && cmpfunc(j->prev->element, temp) > 0) {
+			j->element = j->prev->element;
+			j = j->prev;
+		}
+		j->element = temp;
+		i = i->next;
+	}
 }

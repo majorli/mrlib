@@ -22,14 +22,17 @@ Element al_get(ArrayList al, size_t index);
 int al_append(ArrayList al, Element ele);
 int al_add(ArrayList al, Element ele, size_t index);
 Element al_remove(ArrayList al, size_t index);
+void al_removeall(ArrayList al, onRemove onremove);
 Element al_replace(ArrayList al, Element ele, size_t index);
 int al_search(ArrayList al, Element ele);
-int al_clear(ArrayList al);
+int al_rsearch(ArrayList al, Element ele);
 void al_sort(ArrayList al);
 void al_stsort(ArrayList al);
 void al_comparator(ArrayList al, CmpFunc cmpfunc);
 
-static size_t al_expand(al_p list);
+static size_t __al_expand(al_p list);
+static void __al_quicksort(Element *a, int left, int right, CmpFunc cmpfunc);
+static void __al_insertionsort(Element *a, int left, int right, CmpFunc cmpfunc);
 
 /**
  * 创建一个ArrayList，返回句柄
@@ -99,7 +102,7 @@ int al_isempty(ArrayList al)
 	if (list != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(list->mut));
-		ret = (list->size > 0);
+		ret = (list->size == 0);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
 	}
@@ -167,7 +170,7 @@ int al_append(ArrayList al, Element ele)
 			pthread_mutex_lock(&(list->mut));
 		}
 		if (list->size == list->capacity) {
-			al_expand(list);
+			__al_expand(list);
 		}
 		list->elements[list->size] = ele;
 		ret = list->size;
@@ -196,7 +199,7 @@ int al_add(ArrayList al, Element ele, size_t index)
 			pthread_mutex_lock(&(list->mut));
 		}
 		if (list->size == list->capacity) {
-			al_expand(list);
+			__al_expand(list);
 		}
 		if (index < list->size) {	// 指定的位置在当前列表中间，顺序后移指定位置开始的元素，留出空格存放当前元素
 			ret = index;
@@ -229,9 +232,8 @@ Element al_remove(ArrayList al, size_t index)
 	Element ret = NULL;
 	al_p list = (al_p)container_get(al, ArrayList_t);
 	if (list != NULL) {
-		if (__MultiThreads__ == 1) {
+		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(list->mut));
-		}
 		if (index < list->size) {
 			ret = list->elements[index];		// 待删除的元素将作为返回值返回
 			size_t p = index + 1;
@@ -241,11 +243,31 @@ Element al_remove(ArrayList al, size_t index)
 			}
 			list->size--;
 		}
-		if (__MultiThreads__ == 1) {
+		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(list->mut));
-		}
 	}
 	return ret;
+}
+
+/**
+ * 删除ArrayList中所有的元素，被清除的元素用onremove函数进行后续处理
+ * al:		ArrayList句柄
+ * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
+ *
+ */
+void al_removeall(ArrayList al, onRemove onremove)
+{
+	al_p list = (al_p)container_get(al, ArrayList_t);
+	if (list != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(list->mut));
+		if (onremove != NULL)
+			for (size_t p = 0; p < list->size; p++)
+				onremove(list->elements[p]);
+		list->size = 0;
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(list->mut));
+	}
 }
 
 /**
@@ -293,7 +315,7 @@ int al_search(ArrayList al, Element ele)
 		if (list->size > 0) {
 			int p;
 			for (p = 0; p < list->size; p++) {
-				if (list->cmpfunc(list->elements[ret], ele) == 0) {
+				if (list->cmpfunc(list->elements[p], ele) == 0) {
 					ret = p;
 					break;
 				}
@@ -307,20 +329,29 @@ int al_search(ArrayList al, Element ele)
 }
 
 /**
- * 清空列表，清空列表并不会释放列表所用的内存空间
+ * 从列表中逆向查找一个元素，元素的查找使用列表创建时提供的对象比较函数
  * al:		ArrayList句柄
+ * ele:		要查找的元素
  *
- * 返回:	清空成功返回被清空的元素个数，al句柄无效或清空不成功返回-1
+ * 返回:	查找到的时候返回元素位置，有多个相同元素时返回最后面的那个，al句柄无效或ele为NULL或查找不到返回-1
  */
-int al_clear(ArrayList al)
+int al_rsearch(ArrayList al, Element ele)
 {
 	int ret = -1;
 	al_p list = (al_p)container_get(al, ArrayList_t);
-	if (list != NULL) {
+	if (list != NULL && ele != NULL) {
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_lock(&(list->mut));
 		}
-		list->size = 0;
+		if (list->size > 0) {
+			int p;
+			for (p = list->size - 1; p >= 0; p--) {
+				if (list->cmpfunc(list->elements[p], ele) == 0) {
+					ret = p;
+					break;
+				}
+			}
+		}
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(list->mut));
 		}
@@ -340,12 +371,11 @@ void al_sort(ArrayList al)
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_lock(&(list->mut));
 		}
-		quicksort(list->elements, 0, list->size - 1, list->cmpfunc);
+		__al_quicksort(list->elements, 0, list->size - 1, list->cmpfunc);
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(list->mut));
 		}
 	}
-	return;
 }
 
 /**
@@ -360,12 +390,11 @@ void al_stsort(ArrayList al)
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_lock(&(list->mut));
 		}
-		insertionsort(list->elements, 0, list->size - 1, list->cmpfunc);
+		__al_insertionsort(list->elements, 0, list->size - 1, list->cmpfunc);
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(list->mut));
 		}
 	}
-	return;
 }
 
 /**
@@ -390,16 +419,68 @@ void al_comparator(ArrayList al, CmpFunc cmpfunc)
 			pthread_mutex_unlock(&(list->mut));
 		}
 	}
-	return;
 }
 
 /**
  * 扩展列表容量，单位为一个SECTION_SIZE，返回扩展后的容量值
  */
-static size_t al_expand(al_p list)
+static size_t __al_expand(al_p list)
 {
 	size_t nc = list->capacity + SECTION_SIZE;
 	list->elements = (Element *)realloc(list->elements, nc * sizeof(Element));
 	list->capacity = nc;
 	return nc;
+}
+
+/**
+ * 对一组元素进行快速排序
+ * a:		待排序元素数组
+ * left:	左边界坐标
+ * right:	右边界坐标
+ * cmpfunc:	比较函数
+ *
+ */
+static void __al_quicksort(Element *a, int left, int right, CmpFunc cmpfunc)
+{
+	if(left >= right)
+		return;
+	int i = left;
+	int j = right;
+	Element key = a[left];
+	while (i < j) {
+		while (i < j && cmpfunc(key, a[j]) <= 0)
+			j--;
+		if (i < j)
+			a[i++] = a[j];
+		while (i < j && cmpfunc(key, a[i]) >= 0)
+			i++;
+		if (i < j)
+			a[j--] = a[i];
+	}
+	a[i] = key;
+	__al_quicksort(a, left, i - 1, cmpfunc);
+	__al_quicksort(a, i + 1, right, cmpfunc);
+	return;
+}
+
+/**
+ * 对一组元素进行插入排序
+ * a:		待排序元素数组
+ * left:	左边界坐标
+ * right:	右边界坐标
+ * cmpfunc:	比较函数
+ *
+ */
+static void __al_insertionsort(Element *a, int left, int right, CmpFunc cmpfunc)
+{
+	int i, j;
+	for (i = left + 1; i <= right; i++) {
+		Element temp = a[i];
+		j = i;
+		while (j > left && cmpfunc(a[j - 1], temp) > 0) {
+			a[j] = a[j - 1];
+			j--;
+		}
+		a[j] = temp;
+	}
 }
