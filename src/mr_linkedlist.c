@@ -157,10 +157,10 @@ size_t ll_size(LinkedList ll)
 }
 
 /**
- * 获取表头元素的位置
+ * 获取表头节点
  * ll:		LinkedList句柄
  *
- * 返回:	表头的元素位置，列表句柄无效或空表时返回NULL
+ * 返回:	表头节点，列表句柄无效或空表时返回NULL
  */
 LLNode ll_head(LinkedList ll)
 {
@@ -177,10 +177,10 @@ LLNode ll_head(LinkedList ll)
 }
 
 /**
- * 获取表尾元素的位置
+ * 获取表尾节点
  * ll:		LinkedList句柄
  *
- * 返回:	表尾的元素位置，列表句柄无效或空表时返回NULL
+ * 返回:	表尾节点，列表句柄无效或空表时返回NULL
  */
 LLNode ll_tail(LinkedList ll)
 {
@@ -197,10 +197,10 @@ LLNode ll_tail(LinkedList ll)
 }
 
 /**
- * 获取pos位置的下一个元素的位置
- * pos:		当前位置
+ * 获取下一个节点
+ * pos:		当前节点
  *
- * 返回:	下一个元素的位置，pos==NULL或已经到达表尾时返回NULL
+ * 返回:	下一个节点，列表句柄无效或空表或已经到达表尾时返回NULL
  */
 LLNode ll_next(LLNode pos)
 {
@@ -218,10 +218,10 @@ LLNode ll_next(LLNode pos)
 }
 
 /**
- * 获取pos位置的前一个元素的位置
- * pos:		当前位置
+ * 获取前一个节点
+ * pos:		当前节点
  *
- * 返回:	前一个元素的位置，pos==NULL或已经到达表头时返回NULL
+ * 返回:	前一个节点，列表句柄无效或空表或已经到达表头时返回NULL
  */
 LLNode ll_prev(LLNode pos)
 {
@@ -239,8 +239,8 @@ LLNode ll_prev(LLNode pos)
 }
 
 /**
- * 获取指定位置处的元素
- * pos:		指定的元素位置
+ * 获取指定节点中的元素
+ * pos:		节点
  *
  * 返回:	元素，如果位置无效或列表句柄无效则返回NULL
  */
@@ -260,11 +260,11 @@ Element ll_get(LLNode pos)
 }
 
 /**
- * 在列表指定位置之后插入一个元素
- * pos:		要插入元素的位置，不能为NULL
+ * 在指定节点之后插入一个元素
+ * pos:		指定的节点，不能为NULL
  * ele:		元素，不能为NULL
  *
- * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
+ * 返回:	元素插入后形成的节点，如果ele==NULL或者pos无效，或发生其他错误导致添加失败返回NULL
  */
 LLNode ll_insert_after(LLNode pos, Element ele)
 {
@@ -285,11 +285,11 @@ LLNode ll_insert_after(LLNode pos, Element ele)
 }
 
 /**
- * 在列表指定位置之前插入一个元素
- * pos:		要插入元素的位置，不能为NULL
+ * 在指定节点之前插入一个元素
+ * pos:		指定的节点，不能为NULL
  * ele:		元素，不能为NULL
  *
- * 返回:	元素插入后所在位置，如果元素或位置为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
+ * 返回:	元素插入后形成的节点，如果ele==NULL或者pos无效，或发生其他错误导致添加失败返回NULL
  */
 LLNode ll_insert_before(LLNode pos, Element ele)
 {
@@ -314,7 +314,7 @@ LLNode ll_insert_before(LLNode pos, Element ele)
  * ll:		LinkedList句柄
  * ele:		元素，不能为NULL
  *
- * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
+ * 返回:	元素添加后形成的节点，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
 LLNode ll_append(LinkedList ll, Element ele)
 {
@@ -341,7 +341,7 @@ LLNode ll_append(LinkedList ll, Element ele)
  * ll:		LinkedList句柄
  * ele:		元素，不能为NULL
  *
- * 返回:	元素添加后所在位置，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
+ * 返回:	元素添加后形成的节点，如果元素为NULL或者ll句柄无效，或发生其他错误导致添加失败返回NULL
  */
 LLNode ll_prepend(LinkedList ll, Element ele)
 {
@@ -364,10 +364,10 @@ LLNode ll_prepend(LinkedList ll, Element ele)
 }
 
 /**
- * 删除指定位置的元素，删除成功后pos所指的节点被释放，节点失效
+ * 删除指定节点，删除成功后节点被销毁，元素被返回
  * pos:		要删除的节点，删除后*pos被置为NULL
  *
- * 返回:	删除的元素，ll无效或*pos无效时返回NULL
+ * 返回:	删除的节点中的元素，pos无效时返回NULL
  */
 Element ll_remove(LLNode *pos)
 {
@@ -387,7 +387,7 @@ Element ll_remove(LLNode *pos)
 }
 
 /**
- * 删除LinkedList中所有的元素，被清除的元素用onremove函数进行后续处理
+ * 删除LinkedList中所有的节点，被清除的元素用onremove函数进行后续处理
  * ll:		LinkedList句柄
  * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
  *
