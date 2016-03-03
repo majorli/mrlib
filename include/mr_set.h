@@ -95,10 +95,10 @@ extern SetIterator set_riterator(Set s);
 
 /**
  * 迭代访问一个迭代器中的下一个元素
- * it:		集合迭代器
+ * it:		集合迭代器的指针
  *
- * 返回:	迭代中的下一个元素，迭代器无效时返回NULL，已经迭代完成时返回NULL并销毁迭代器，置it为NULL
+ * 返回:	迭代中的下一个元素，迭代器无效或已经迭代完成时返回NULL并销毁迭代器，设置迭代器指针为NULL
  */
-extern Element set_next(SetIterator it);
+extern Element set_next(SetIterator *it);
 
 #endif
