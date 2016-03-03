@@ -20,15 +20,14 @@ typedef void *Container;
 typedef enum {
 	ArrayList_t,
 	LinkedList_t,
-	HashSet_t,
-	LinkedHashSet_t,
+	Set_t,
+	Map_t,
 	Stack_t,
 	Queue_t,
 	PriorityQueue_t,
-	HashMap_t,
-	LinkedHashMap_t,
+	Tree_t,
 	BTree_t,
-	Tree_t
+	Graph_t
 } ContainerType;
 
 /**

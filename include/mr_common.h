@@ -146,32 +146,13 @@ extern CmpFunc default_cmpfunc(ElementType type);
  */
 typedef int ArrayList;
 typedef int LinkedList;
-typedef int HashSet;
-typedef int LinkedHashSet;
+typedef int Set;
+typedef int Map;
 typedef int Stack;
 typedef int Queue;
 typedef int PriorityQueue;
-typedef int HashMap;
-typedef int LinkedHashMap;
-typedef int BTree;
 typedef int Tree;
-
-/**
- * 迭代器类型
- */
-typedef enum {
-	HashSetIterator,
-	LinkedHashSetIterator,
-	HashMapIterator,
-	LinkedHashMapIterator
-} IteratorType;
-
-/**
- * 容器迭代器结构
- */
-typedef struct {
-	void *iterator;
-	IteratorType type;
-} Iterator_t, *Iterator;
+typedef int BTree;
+typedef int Graph;
 
 #endif

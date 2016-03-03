@@ -34,7 +34,7 @@ extern int al_destroy(ArrayList al);
  * 判断一个ArrayList是否为空
  * al:		ArrayList句柄
  *
- * 返回:	为空返回0，不为空返回1，无效句柄返回-1
+ * 返回:	为空返回1，不为空返回0，无效句柄返回-1
  */
 extern int al_isempty(ArrayList al);
 

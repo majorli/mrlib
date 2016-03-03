@@ -1,3 +1,6 @@
+- 2016/3/3
+	- 修正了容器的种类，取消HashSet和LinkedHashSet，合并为Set，采用AVL树实现，取消HashMap和LinkedHashMap，合并为Map，增加Graph
+	- 定义Stack和Set的界面
 - 2016/3/2
 	- 修正了ArrayList中的错误，完成LinkedList的开发和测试
 	- 快速排序和插入排序的实现移到`al_arraylist.c`中实现并隐藏

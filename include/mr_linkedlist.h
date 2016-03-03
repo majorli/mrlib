@@ -40,7 +40,7 @@ extern int ll_destroy(LinkedList ll);
  * 判断一个LinkedList是否为空
  * ll:		LinkedList句柄
  *
- * 返回:	为空返回0，不为空返回1，无效句柄返回-1
+ * 返回:	为空返回1，不为空返回0，无效句柄返回-1
  */
 extern int ll_isempty(LinkedList ll);
 
