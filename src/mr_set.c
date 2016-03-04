@@ -134,7 +134,7 @@ int set_isempty(Set s)
 	if (set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		ret = (set->size == 0);
+		ret = (set->root == NULL);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
@@ -312,6 +312,7 @@ int set_add(Set s, Element ele)
 					__set_r_left(set, fbn->right);
 				}
 			}
+			set->size++;
 			ret = 0;
 		}
 		if (__MultiThreads__ == 1)
@@ -330,6 +331,7 @@ int set_add(Set s, Element ele)
 int set_remove(Set s, Element ele)
 {
 	int ret = -1;
+	// TODO 注意要更新set->size，要注意如果删除了根节点，那么要把set->root赋值为NULL
 	return ret;
 }
 
