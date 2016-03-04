@@ -42,7 +42,7 @@ int set_isempty(Set s);
 size_t set_size(Set s);
 Element set_search(Set s, Element ele);
 int set_add(Set s, Element ele);
-int set_remove(Set s, Element ele);
+Element set_remove(Set s, Element ele);
 void set_removeall(Set s, onRemove onremove);
 SetIterator set_iterator(Set s);
 SetIterator set_riterator(Set s);
@@ -65,6 +65,10 @@ static set_node_p __set_get(set_p set, Element ele);			// 在集合set中搜索�
 static void __set_fix_balance(set_node_p from, set_node_p to);		// 从from到to自下而上的修正平衡因子
 static void __set_r_left(set_p set, set_node_p node);			// 以node节点为轴左旋
 static void __set_r_right(set_p set, set_node_p node);			// 以node节点为轴右旋
+
+static set_node_p __set_successor(set_node_p p);			// 返回已知节点的后继节点，即按递增顺序排列的后一个节点，当前节点是树中最大值时返回NULL
+static set_node_p __set_min(set_node_p root);				// 返回树中最小的节点
+static set_node_p __set_max(set_node_p root);				// 返回树中最大的节点
 
 /**
  * 创建一个Set，返回句柄
@@ -322,16 +326,90 @@ int set_add(Set s, Element ele)
 }
 
 /**
- * 删除一个元素
+ * 删除一个元素，根据参数ele查找集合中与之相同的元素，删除该节点，返回集合中的元素
  * s:		Set句柄
  * ele:		待删除的元素
  *
- * 返回:	删除成功返回0，删除失败或元素未找到返回-1
+ * 返回:	删除成功返回集合中的元素，删除失败或未找到返回NULL
  */
-int set_remove(Set s, Element ele)
+Element set_remove(Set s, Element ele)
 {
-	int ret = -1;
-	// TODO 注意要更新set->size，要注意如果删除了根节点，那么要把set->root赋值为NULL
+	Element ret = NULL;
+	// 注意要更新set->size，要注意如果删除了根节点，那么要把set->root赋值为NULL
+	set_p set = (set_p)container_get(s, Set_t);
+	if (ele != NULL && set != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(set->mut));
+		set_node_p del = __set_get(set, ele);			// 查找要删除的节点
+		if (del != NULL) {					// 查找不到要删除的节点的话直接返回NULL
+			set_node_p todel, next;
+			if (del->left == NULL || del->right == NULL)
+				todel = del;				// 待删除节点最多只有一个子节点，那么就删除它
+			else
+				todel = __set_successor(del);		// 待删除节点有两个子节点，那么删除它的后继节点
+		}
+		/* 调整待删除节点以上的父节点的平衡因子，直到根节点或第一个调整后不平衡的父节点 */
+		set_node_p pend = todel;
+		while (pend != NULL) {
+			if (pend->parent == NULL)
+				break;
+			if (pend == pend->parent->left)
+				pend->parent->balance--;
+			else
+				pend->parent->balance++;
+			pend = pend->parent;
+			if (pend->balance != 0)
+				break;
+		}
+		// TODO
+		/*
+		//////////////////////////////////////////////////////////////////////////////
+		//这一步是为了更新平衡因子调整树的结构而设计的
+		BinaryTreeNode *pend=todelete;
+		while(pend!=NULL)
+		{
+			if(pend->getParent()==NULL)break;//根节点
+			if(pend == pend->getParent()->getLeft())
+				pend->getParent()->setBalance(pend->getParent()->getBalance()-1);
+			else
+				pend->getParent()->setBalance(pend->getParent()->getBalance()+1);
+			pend=pend->getParent();
+			if(pend->getBalance() != 0)break;
+		}
+		//////////////////////////////////////////////////////////////////////////////
+
+		//获取唯一的儿子节点，准备当前即将删除节点的删除工作
+		if(todelete->getLeft()!=NULL)
+			nextNode=todelete->getLeft();
+		else
+			nextNode=todelete->getRight();
+		//开始删除节点
+		if(nextNode!=NULL)
+			nextNode->setParent(todelete->getParent());
+		if(todelete->getParent()==NULL)
+			root=nextNode;
+		else if(todelete->getParent()->getLeft()==todelete)
+			todelete->getParent()->setLeft(nextNode);
+		else
+			todelete->getParent()->setRight(nextNode);
+		//节点成功删除，删完后在考虑将原来节点的后续节点值的替换
+		if(todelete!=deletedNode)
+		{
+			deletedNode->setKey(todelete->getKey());
+			deletedNode->setValue(todelete->getValue());
+		}
+		//删除节点
+		delete todelete;
+
+		//更新平衡因子
+		deleteNode(pend);
+
+		//返回不平衡点
+		return pend;
+		*/
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(set->mut));
+	}
 	return ret;
 }
 
@@ -587,5 +665,42 @@ static void __set_r_right(set_p set, set_node_p node)			// 以node节点为轴�
 		node->right->parent = parent;
 	node->right = parent;
 	parent->parent = node;
+}
+
+static set_node_p __set_successor(set_node_p p)		// 返回已知节点的后继节点，即按递增顺序排列的后一个节点，当前节点是树中最大值时返回NULL
+{
+	// 如果这个节点有右子树则返回右子树中的最小节点，否则向上寻找直到第一个向右转的父节点(当前节点在该节点的左子树里)，没有向右转的父节点则返回NULL
+	set_node_p ret = NULL;
+	if (p != NULL) {
+		set_node_p tmp = p;
+		if (tmp->right != NULL) {
+			ret = __set_min(tmp->right);
+		} else {
+			ret = tmp->parent;
+			while (ret != NULL && tmp == ret->right) {
+				tmp = ret;
+				ret = ret->parent;
+			}
+		}
+	}
+	return ret;
+}
+
+static set_node_p __set_min(set_node_p root)		// 返回树中最小的节点
+{
+	set_node_p ret = root;
+	if (ret != NULL)
+		while (ret->left != NULL)
+			ret = ret->left;
+	return ret;
+}
+
+static set_node_p __set_max(set_node_p root)		// 返回树中最大的节点
+{
+	set_node_p ret = root;
+	if (ret != NULL)
+		while (ret->right != NULL)
+			ret = ret->right;
+	return ret;
 }
 

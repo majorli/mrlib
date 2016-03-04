@@ -70,13 +70,13 @@ extern Element set_search(Set s, Element ele);
 extern int set_add(Set s, Element ele);
 
 /**
- * 删除一个元素
+ * 删除一个元素，根据参数ele查找集合中与之相同的元素，删除该节点，返回集合中的元素
  * s:		Set句柄
  * ele:		待删除的元素
  *
- * 返回:	删除成功返回0，删除失败或元素未找到返回-1
+ * 返回:	删除成功返回集合中的元素，删除失败或未找到返回NULL
  */
-extern int set_remove(Set s, Element ele);
+extern Element set_remove(Set s, Element ele);
 
 /**
  * 删除Set中所有的元素，被清除的元素用onremove函数进行后续处理
