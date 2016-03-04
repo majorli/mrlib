@@ -40,12 +40,16 @@ Set set_create(ElementType type, CmpFunc cmpfunc);
 int set_destroy(Set s);
 int set_isempty(Set s);
 size_t set_size(Set s);
+Element set_search(Set s, Element ele);
 int set_add(Set s, Element ele);
 int set_remove(Set s, Element ele);
 void set_removeall(Set s, onRemove onremove);
 SetIterator set_iterator(Set s);
 SetIterator set_riterator(Set s);
 Element set_next(SetIterator *it);
+Set set_intersection(Set s1, Set s2);
+Set set_union(Set s1, Set s2);
+Set set_minus(Set s1, Set s2);
 
 static void __postorder_remove(set_node_p root, onRemove onremove);	// 后序遍历删除所有节点
 
@@ -55,6 +59,12 @@ static int __it_stack_empty(set_it_p it);				// 迭代用的空栈判断函数
 
 static set_it_p __iterator(set_p s, int asc);				// 生成一个迭代器
 static set_node_p __it_next(set_it_p it);				// 用Mirros算法中序迭代一个迭代器
+
+static set_node_p __set_get(set_p set, Element ele);			// 在集合set中搜索与ele相同的元素，返回其节点，搜索不到返回NULL
+
+static void __set_fix_balance(set_node_p from, set_node_p to);		// 从from到to自下而上的修正平衡因子
+static void __set_r_left(set_p set, set_node_p node);			// 以node节点为轴左旋
+static void __set_r_right(set_p set, set_node_p node);			// 以node节点为轴右旋
 
 /**
  * 创建一个Set，返回句柄
@@ -152,6 +162,28 @@ size_t set_size(Set s)
 }
 
 /**
+ * 在集合中搜索一个元素
+ * s:		Set句柄
+ * ele:		要搜索的元素
+ *
+ * 返回:	搜索到集合中存在与ele相同的元素时返回集合中的元素，搜索不到或搜索出错返回NULL
+ */
+Element set_search(Set s, Element ele)
+{
+	Element ret = NULL;
+	set_p set = (set_p)container_get(s, Set_t);
+	if (ele != NULL && set != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(set->mut));
+		set_node_p node = __set_get(set, ele);
+		ret = (node == NULL ? NULL : node->element);
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(set->mut));
+	}
+	return ret;
+}
+
+/**
  * 添加一个元素，重复元素将不予添加
  * s:		Set句柄
  * ele:		待添加的元素
@@ -161,6 +193,130 @@ size_t set_size(Set s)
 int set_add(Set s, Element ele)
 {
 	int ret = -1;
+	set_p set = (set_p)container_get(s, Set_t);
+	if (ele != NULL && set != NULL) {
+		if (__MultiThreads__ == 1)
+			pthread_mutex_lock(&(set->mut));
+		int exists = 0;				// 元素是否已经存在的标识
+		set_node_p fbn = NULL;			// firstBalanceNode
+		unsigned int path = 1;			// 记录从fbn开始往下的路径，以1为开始标记，每一位的0表示向左1表示向右
+		int k = 0;				// 开始位置
+		set_node_p p = set->root;		// 当前搜索点
+		set_node_p parent = NULL;		// 搜索点的父节点
+		int cmp = 0;
+		while (p != NULL) {
+			if (p->balance != 0) {
+				fbn = p;
+				path = 1;
+				k = 0;
+			}
+			parent = p;
+			cmp = set->cmpfunc(ele, p->element);
+			if (cmp < 0) {			// ele < p->element，向左走
+				k++;
+				p = p->left;
+				path = (path << 1);	// 向左走就是在path后面加一个0
+			} else if (cmp > 0) {		// ele > p->element，向右走
+				k++;
+				p = p->right;
+				path = (path << 1);
+				path++;			// 向右走就是在path后面加一个1
+			} else {			// ele == p->element，已经有这个元素，不做任何操作直接退出
+				exists = 1;
+				break;
+			}
+		}
+		if (!exists) {				// 元素不存在的情况下进行添加，否则直接退出并返回-1
+			set_node_p nnode = (set_node_p)malloc(sizeof(set_node_t));	// 新节点
+			nnode->element = ele;
+			nnode->left = NULL;
+			nnode->right = NULL;
+			nnode->parent = parent;			// 如果root为NULL，那么上一个搜索循环必定直接结束，可以断言此时parent也必定为NULL
+			nnode->balance = 0;
+			if (set->root == NULL)
+				set->root = nnode;
+			else					// 如果root不为NULL，cmp至少经历过一次比较，因为元素重复的情况在这里已经被排除，所以最后一次必定是ele和parent的比较
+				if (cmp < 0)			// 比父节点小，插入为左子节点
+					parent->left = nnode;
+				else				// 否则肯定比父节点大，因为相同的情况已经被排除，插入为右子节点
+					parent->right = nnode;
+			/* 
+			 * 开始进行AVL树维护，首先要判断是否需要旋转，有三种情况不需要旋转：
+			 *	1. 没有找到非平衡点，判断依据为fbn == NULL，记为C1
+			 *	2. 存在非平衡点，但因为新节点的加入变成了平衡点，分为以下两种情况:
+			 *		2.1 最后一个非平衡点向右倾斜，而新节点在它的左子树，判断依据为fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0，记为C2
+			 *		2.2 最后一个非平衡点向左倾斜，而新节点在它的右子树，判断依据为fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1，记为C3
+			 * 由此可以得到需要进行旋转的条件是:
+			 *	A == !(C1 || C2 || C3)
+			 *	判断式为：fbn != NULL && !(fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0) && !(fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1)
+			 *	又：bfn != NULL时，可以断言：fbn->balance != 0，即不是1就是-1，且k >= 1，即可以计算走向值(path >> (k - 1)) & 1，该走向值非0即1
+			 *	所以可以断言该判断式有效，然后在!C1的前提下化简为更易理解的表达式
+			 *	定义D1 := (fbn->balance == -1), D2 := (fbn->balance == 1)，可知(D1 || D2) == TRUE
+			 *	定义变量dir = (path >> (k - 1)) & 1，可知该值存在
+			 *	定义E1 := (dir == 0), E2 := (dir == 1)，可知(E1 || E2) == TRUE
+			 *	化简：A == !C1 && !C2 && !C3
+			 *		== !C1 && !C2 && !C3
+			 *		== !C1 && (!(D1 && E1) && !(D2 && E2))
+			 *		== !C1 && ((!D1 || !E1) && (!D2 && !E2))
+			 *		== !C1 && ((!D1 && !D2) || (!D1 && !E2) || (!E1 && !D2) || (!E1 && !E2))
+			 *		== !C1 && (!(D1 || D2) || (!D1 && !E2) || (!D2 && !E1) || !(E1 || E2))
+			 *		== !C1 && (0 || (!D1 && !E2) || (!D2 && !E1) || !(E1 || E2))
+			 *		== !C1 && ((!D1 && !E2) || (!D2 && !E1))
+			 *	含义：从新节点到根的自下而上的路径上，存在非平衡节点，且在最后一个非平衡节点处，插入的方向和原倾斜方向相同，导致更加倾斜，破坏了AVL树的平衡性
+			 */
+			if ((fbn == NULL) || (fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0) || (fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1))
+				// 不需要旋转的三种情况，只需要修正平衡因子即可
+				__set_fix_balance(nnode, fbn);
+			else {
+				// 需要旋转的情况，首先还是修正平衡因子
+				__set_fix_balance(nnode, fbn);
+				// 计算从fbn开始的两步走向，因为需要旋转的情况都是走向与倾向相同，所以从最后一个不平衡点开始都至少要走两步，即k >= 2
+				unsigned int dir = (path >> (k - 2)) & 3;	// dir = d1 d2
+				if (dir == 0) {				// 连续两步向左，以fbn->left为轴进行一次右旋
+					fbn->balance = 0;
+					fbn->left->balance = 0;
+					__set_r_right(set, fbn->left);
+				} else if (dir == 3) {			// 连续两步向右，以fbn->right为轴进行一次右旋
+					fbn->balance = 0;
+					fbn->right->balance = 0;
+					__set_r_left(set, fbn->right);
+				} else if (dir == 1) {			// 先左后右，进行两次旋转，先以fbn->left->right为轴左旋，再以fbn->left为轴右旋
+					int bal = fbn->left->right->balance;
+					fbn->left->right->balance = 0;
+					if (bal == 0) {
+						fbn->balance = 0;
+						fbn->left->balance = 0;
+					} else if (bal == 1) {
+						fbn->balance = -1;
+						fbn->left->balance = 0;
+					} else {
+						fbn->balance = 0;
+						fbn->left->balance = 1;
+					}
+					__set_r_left(set, fbn->left->right);
+					__set_r_right(set, fbn->left);
+				} else {				// 先右后左，进行两次旋转，先以fbn->right->left为轴右旋，再以fbn->right为轴左旋
+					int bal = fbn->right->left->balance;
+					fbn->right->left->balance = 0;
+					if (bal == 0) {
+						fbn->balance = 0;
+						fbn->right->balance = 0;
+					} else if (bal == 1) {
+						fbn->balance = 0;
+						fbn->right->balance = -1;
+					} else {
+						fbn->balance = 1;
+						fbn->right->balance = 0;
+					}
+					__set_r_right(set, fbn->right->left);
+					__set_r_left(set, fbn->right);
+				}
+			}
+			ret = 0;
+		}
+		if (__MultiThreads__ == 1)
+			pthread_mutex_unlock(&(set->mut));
+	}
 	return ret;
 }
 
@@ -268,7 +424,46 @@ Element set_next(SetIterator *it)
 	return ret;
 }
 
-static void __postorder_remove(set_node_p root, onRemove onremove)		// 后序遍历删除所有节点
+/**
+ * 求两个集合的交集，如果两个集合的元素数据类型不一致则返回空集合
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	s1和s2的交集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+Set set_intersection(Set s1, Set s2)
+{
+	Set ret = -1;
+	return ret;
+}
+
+/**
+ * 求两个集合的并集，如果两个集合的元素数据类型不一致则返回空集合
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	s1和s2的并集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+Set set_union(Set s1, Set s2)
+{
+	Set ret = -1;
+	return ret;
+}
+
+/**
+ * 求两个集合的减集，即s1-s2，从s1中删除所有存在于s2中的元素，如果两个集合的元素数据类型不一致则结果集与s1的元素相同
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	集合s1-s2的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+Set set_minus(Set s1, Set s2)
+{
+	Set ret = -1;
+	return ret;
+}
+
+static void __postorder_remove(set_node_p root, onRemove onremove)	// 后序遍历删除所有节点
 {
 	if (root != NULL) {
 		__postorder_remove(root->left, onremove);
@@ -322,3 +517,73 @@ static set_node_p __it_next(set_it_p it) {				// 中序迭代一个迭代器
 	}
 	return ret;
 }
+
+static set_node_p __set_get(set_p set, Element ele)			// 在集合set中搜索与ele相同的元素，返回其节点，搜索不到返回NULL
+{
+	set_node_p p = set->root;
+	while (p != NULL) {
+		int cmp = set->cmpfunc(ele, p->element);
+		if (cmp < 0)
+			p = p->left;
+		else if (cmp > 0)
+			p = p->right;
+		else
+			break;
+	}
+	return p;
+}
+
+static void __set_fix_balance(set_node_p from, set_node_p to)		// 从from到to自下而上的修正平衡因子
+{
+	set_node_p nnode = from;
+	while (nnode != to) {
+		if (nnode->parent == NULL)
+			break;
+		if (nnode == nnode->parent->left)
+			nnode->parent->balance++;
+		else
+			nnode->parent->balance--;
+		nnode = nnode->parent;
+	}
+}
+
+static void __set_r_left(set_p set, set_node_p node)			// 以node节点为轴左旋
+{
+	set_node_p parent = node->parent;				// 断言: 用作旋转的轴的节点必然不是root
+	if (parent == set->root) {
+		set->root = node;
+		node->parent = NULL;
+	} else {
+		node->parent = parent->parent;
+		if (parent->parent->left == parent)
+			parent->parent->left = node;
+		else
+			parent->parent->right = node;
+	}
+	parent->right = node->left;
+	if (node->left != NULL)
+		node->left->parent = parent;
+	node->left = parent;
+	parent->parent = node;
+}
+
+static void __set_r_right(set_p set, set_node_p node)			// 以node节点为轴右旋
+{
+	set_node_p parent = node->parent;
+	if (parent == set->root) {
+		set->root = node;
+		node->parent = NULL;
+	} else {
+		node->parent = parent->parent;
+		if (parent->parent->left == parent)
+			parent->parent->left = node;
+		else
+			parent->parent->right = node;
+	}
+	parent->left = node->right;
+	if (node->right != NULL)
+		node->right->parent = parent;
+	node->right = parent;
+	parent->parent = node;
+}
+

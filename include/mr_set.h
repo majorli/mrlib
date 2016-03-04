@@ -52,6 +52,15 @@ extern int set_isempty(Set s);
 extern size_t set_size(Set s);
 
 /**
+ * 在集合中搜索一个元素
+ * s:		Set句柄
+ * ele:		要搜索的元素
+ *
+ * 返回:	搜索到集合中存在与ele相同的元素时返回集合中的元素，搜索不到或搜索出错返回NULL
+ */
+extern Element set_search(Set s, Element ele);
+
+/**
  * 添加一个元素，重复元素将不予添加
  * s:		Set句柄
  * ele:		待添加的元素
@@ -100,5 +109,32 @@ extern SetIterator set_riterator(Set s);
  * 返回:	迭代中的下一个元素，迭代器无效或已经迭代完成时返回NULL并销毁迭代器，设置迭代器指针为NULL
  */
 extern Element set_next(SetIterator *it);
+
+/**
+ * 求两个集合的交集，如果两个集合的元素数据类型不一致则返回空集合
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	s1和s2的交集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+extern Set set_intersection(Set s1, Set s2);
+
+/**
+ * 求两个集合的并集，如果两个集合的元素数据类型不一致则返回空集合
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	s1和s2的并集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+extern Set set_union(Set s1, Set s2);
+
+/**
+ * 求两个集合的减集，即s1-s2，从s1中删除所有存在于s2中的元素，如果两个集合的元素数据类型不一致则结果集与s1的元素相同
+ * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * s1,s2:	两个集合的句柄
+ *
+ * 返回:	集合s1-s2的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
+ */
+extern Set set_minus(Set s1, Set s2);
 
 #endif

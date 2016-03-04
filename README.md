@@ -1,3 +1,6 @@
+- 2016/3/4
+	- 完成Set的添加元素函数`set_add()`和搜索函数`set_search()`，由于集合中不存在重复元素，所以集合不提供反向搜索的功能
+	- Set接口增加三个集合运算函数，实现交集、并集和集合减法的运算
 - 2016/3/3
 	- 修正了容器的种类，取消HashSet和LinkedHashSet，合并为Set，采用AVL树实现，取消HashMap和LinkedHashMap，合并为Map，增加Graph
 	- 定义Stack和Set的界面
