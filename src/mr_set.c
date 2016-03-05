@@ -69,6 +69,8 @@ static void __set_r_right(set_p set, set_node_p node);			// 以node节点为轴�
 static set_node_p __set_successor(set_node_p p);			// 返回已知节点的后继节点，即按递增顺序排列的后一个节点，当前节点是树中最大值时返回NULL
 static set_node_p __set_min(set_node_p root);				// 返回树中最小的节点
 static set_node_p __set_max(set_node_p root);				// 返回树中最大的节点
+static set_node_p __set_first_ubparent(set_node_p node);		// 从当前节点开始向上调整父节点的平衡因子直到第一个平衡因子非0的父节点，并返回该父节点
+static void __set_after_remove(set_p set, set_node_p del);		// 调整删除节点后的AVL树结构并修正平衡因子
 
 /**
  * 创建一个Set，返回句柄
@@ -335,78 +337,48 @@ int set_add(Set s, Element ele)
 Element set_remove(Set s, Element ele)
 {
 	Element ret = NULL;
-	// 注意要更新set->size，要注意如果删除了根节点，那么要把set->root赋值为NULL
 	set_p set = (set_p)container_get(s, Set_t);
 	if (ele != NULL && set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
 		set_node_p del = __set_get(set, ele);			// 查找要删除的节点
+		set_node_p todel = NULL;				// 真正的待删除节点
 		if (del != NULL) {					// 查找不到要删除的节点的话直接返回NULL
-			set_node_p todel, next;
 			if (del->left == NULL || del->right == NULL)
 				todel = del;				// 待删除节点最多只有一个子节点，那么就删除它
 			else
 				todel = __set_successor(del);		// 待删除节点有两个子节点，那么删除它的后继节点
 		}
-		/* 调整待删除节点以上的父节点的平衡因子，直到根节点或第一个调整后不平衡的父节点 */
-		set_node_p pend = todel;
-		while (pend != NULL) {
-			if (pend->parent == NULL)
-				break;
-			if (pend == pend->parent->left)
-				pend->parent->balance--;
-			else
-				pend->parent->balance++;
-			pend = pend->parent;
-			if (pend->balance != 0)
-				break;
-		}
-		// TODO
-		/*
-		//////////////////////////////////////////////////////////////////////////////
-		//这一步是为了更新平衡因子调整树的结构而设计的
-		BinaryTreeNode *pend=todelete;
-		while(pend!=NULL)
-		{
-			if(pend->getParent()==NULL)break;//根节点
-			if(pend == pend->getParent()->getLeft())
-				pend->getParent()->setBalance(pend->getParent()->getBalance()-1);
-			else
-				pend->getParent()->setBalance(pend->getParent()->getBalance()+1);
-			pend=pend->getParent();
-			if(pend->getBalance() != 0)break;
-		}
-		//////////////////////////////////////////////////////////////////////////////
-
-		//获取唯一的儿子节点，准备当前即将删除节点的删除工作
-		if(todelete->getLeft()!=NULL)
-			nextNode=todelete->getLeft();
+		/* 寻找第一个调整后不平衡的父节点 */
+		set_node_p fubp = __set_first_ubparent(todel);		// fubp: first unbalance parent
+		/* 获取待删除节点的子节点，根据二叉搜索树删除节点的规则，todel节点最多只有一个子节点 */
+		set_node_p next = NULL;
+		if (todel->left != NULL)
+			next = todel->left;
 		else
-			nextNode=todelete->getRight();
-		//开始删除节点
-		if(nextNode!=NULL)
-			nextNode->setParent(todelete->getParent());
-		if(todelete->getParent()==NULL)
-			root=nextNode;
-		else if(todelete->getParent()->getLeft()==todelete)
-			todelete->getParent()->setLeft(nextNode);
+			next = todel->right;
+		/* 删除节点todel */
+		if (next != NULL)
+			next->parent = todel->parent;
+		if (todel->parent == NULL)
+			set->root = next;
+		else if (todel->parent->left == todel)
+			todel->parent->left = next;
 		else
-			todelete->getParent()->setRight(nextNode);
-		//节点成功删除，删完后在考虑将原来节点的后续节点值的替换
-		if(todelete!=deletedNode)
-		{
-			deletedNode->setKey(todelete->getKey());
-			deletedNode->setValue(todelete->getValue());
-		}
-		//删除节点
-		delete todelete;
-
-		//更新平衡因子
-		deleteNode(pend);
-
-		//返回不平衡点
-		return pend;
-		*/
+			todel->parent->right = next;
+		/* 保留要返回的元素 */
+		ret = del->element;
+		/* 如果del和todel不是同一个节点，那么把todel节点中的元素换到del节点中去保存 */
+		if (todel != del)
+			del->element = todel->element;
+		/* 销毁todel节点 */
+		free(todel);
+		/* 删除完成，从fubp开始修正平衡因子，维护AVL树结构 */
+		__set_after_remove(set, fubp);
+		/* 修改集合的size值 */
+		set->size--;
+		if (set->size == 0)
+			set->root = NULL;
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
@@ -702,5 +674,88 @@ static set_node_p __set_max(set_node_p root)		// 返回树中最大的节点
 		while (ret->right != NULL)
 			ret = ret->right;
 	return ret;
+}
+
+/**
+ * 从父节点开始自下而上修正平衡因子直到找到一个非0平衡因子的节点或抵达root，根据二叉平衡树删除节点的规则，删除节点必定导致节点所在子树的高度减少1层，因此修正后有三种情况
+ * 1. 修正后balance == 0: 说明原先的平衡因子为1或者-1，即原先由一层的平衡叉，删除后变为0，父节点的高度减1，因此要继续向上一层父节点循环查看
+ * 2. 修正后balance == 1或-1: 说明原先完全平衡，现在某一子树减少了一层，但是父节点的总高度不变，因此不会影响更上层的平衡因子，修正结束，节点删除后不需要旋转处理
+ * 3. 修正后balance == 2或-2: 树的平衡性已经破坏，节点删除后要进行旋转处理
+ */
+static set_node_p __set_first_ubparent(set_node_p node)			// 从当前节点开始向上调整父节点的平衡因子直到第一个平衡因子非0的父节点，并返回该父节点
+{
+	set_node_p pend = node;
+	while (pend != NULL) {
+		if (pend->parent == NULL)
+			break;
+		if (pend == pend->parent->left)
+			pend->parent->balance--;
+		else
+			pend->parent->balance++;
+		pend = pend->parent;
+		if (pend->balance != 0)
+			break;
+	}
+	return pend;
+}
+
+static void __set_after_remove(set_p set, set_node_p del)		// 调整删除节点后的AVL树结构并修正平衡因子
+{
+	if (del == NULL || del->balance == 1 || del->balance == -1 || del->balance == 0)	// 节点为NULL或已经平衡，则直接退出
+		return;
+	if (del->balance == 2) {					// 左子树比右子树高2层，要做右旋调整
+		if (del->left->balance == 0) {				// R0旋转
+			del->balance = 1;
+			del->left->balance = -1;
+			__set_r_right(set,del->left);
+			return;						// R0旋转可以保证AVL树整体平衡，所以直接返回
+		} else if (del->left->balance == 1) {			// R1旋转
+			del->balance = 0;
+			del->left->balance = 0;
+			__set_r_right(set, del->left);
+		} else {						// LR旋转
+			if (del->left->right->balance == 0) {
+				del->balance = 0;
+				del->left->balance = 0;
+			} else if (del->left->right->balance == 1) {
+				del->balance = -1;
+				del->left->balance = 0;
+			} else {
+				del->balance = 0;
+				del->left->balance = 1;
+			}
+			del->left->right->balance = 0;
+			__set_r_left(set, del->left->right);
+			__set_r_right(set, del->left);
+		}
+	} else if (del->balance == -2) {				// 右子树比左子树高2层，要做左旋调整
+		if (del->right->balance == 0) {				// L0旋转
+			del->balance = -1;
+			del->right->balance = 1;
+			__set_r_left(set, del->right);
+			return;						// L0旋转可以保证AVL树整体平衡，所以直接返回
+		} else if (del->right->balance == -1) {			// L1旋转
+			del->balance = 0;
+			del->right->balance = 0;
+			__set_r_left(set, del->right);
+		} else {						// RL旋转
+			if (del->right->left->balance == 0) {
+				del->balance = 0;
+				del->right->balance = 0;
+			} else if (del->right->left->balance == -1) {
+				del->balance = 1;
+				del->right->balance = 0;
+			} else {
+				del->balance = 0;
+				del->right->balance = -1;
+			}
+			del->right->left->balance = 0;
+			__set_r_right(set, del->right->left);
+			__set_r_left(set, del->right);
+		}
+	}
+	// R1, LR, L1, RL旋转后可能更上层的平衡性被破坏，所以要继续向根部寻找非平衡点进行调整，直到根节点，使用递归方法进行循环
+	del = __set_first_ubparent(del->parent);
+	__set_after_remove(set, del);					// 递归
 }
 
