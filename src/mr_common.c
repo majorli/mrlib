@@ -48,6 +48,11 @@ Element float_inbox(float x);
 Element double_inbox(double x);
 Element ldouble_inbox(long double x);
 
+/**
+ * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
+ */
+unsigned int lg2(unsigned int n);
+
 int charcmp(const void *d1, const void *d2)
 {
 	int ret = 0;
@@ -543,3 +548,11 @@ Element ldouble_inbox(long double x)
 	return ret;
 }
 
+unsigned int lg2(unsigned int n)
+{
+	unsigned int ret = 0;
+	unsigned int tmp = n;
+	while ((tmp = tmp >> 1) > 0)
+		ret++;
+	return ret;
+}

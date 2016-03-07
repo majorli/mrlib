@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用工具函数、常量及宏函数
  *
- * Version 1.1.0, 李斌，2016/02/29
+ * Version 1.1.1, 李斌，2016/03/08
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -154,5 +154,10 @@ typedef int PriorityQueue;
 typedef int Tree;
 typedef int BTree;
 typedef int Graph;
+
+/**
+ * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
+ */
+extern unsigned int lg2(unsigned int n);
 
 #endif

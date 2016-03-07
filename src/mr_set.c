@@ -4,23 +4,34 @@
 #include "mr_containers.h"
 #include "mr_set.h"
 
+static const int __IT_ASC = 1;
+static const int __IT_DESC = 0;
+
 /**
- * 集合节点结构
+ * 红黑树节点颜色
  */
-typedef struct SetNode {
+typedef enum {
+	Red,
+	Black
+} RBT_Color;
+
+/**
+ * 集合节点结构，即红黑树的节点结构
+ */
+typedef struct RBT_Node {
 	Element element;		// 元素
-	struct SetNode *left;		// 左子树根节点
-	struct SetNode *right;		// 右子树根节点
-	struct SetNode *parent;		// 父节点
-	int balance;			// 平衡因子
-} set_node_t, *set_node_p;
+	struct RBT_Node *left;		// 左子树根节点
+	struct RBT_Node *right;		// 右子树根节点
+	struct RBT_Node *parent;	// 父节点
+	RBT_Color color;		// 节点颜色
+} rbt_node_t, *rbt_node_p;
 
 /**
  * 集合结构
  */
 typedef struct {
 	ElementType type;		// 元素的数据类型
-	set_node_p root;		// 根节点
+	rbt_node_p root;		// 根节点
 	size_t size;			// 节点数量
 	CmpFunc cmpfunc;		// 元素比较函数
 	pthread_mutex_t mut;		// 共享锁
@@ -32,8 +43,8 @@ typedef struct {
 typedef struct {
 	Set set;			// 迭代的集合，用于加访问锁
 	int asc;			// 迭代方向，1=递增顺序，0=递减逆序
-	set_node_p *stack;		// 迭代用的堆栈
-	set_node_p *top;		// 栈顶指针
+	rbt_node_p *stack;		// 迭代用的堆栈
+	rbt_node_p *top;		// 栈顶指针
 } set_it_t, *set_it_p;
 
 Set set_create(ElementType type, CmpFunc cmpfunc);
@@ -51,26 +62,26 @@ Set set_intersection(Set s1, Set s2);
 Set set_union(Set s1, Set s2);
 Set set_minus(Set s1, Set s2);
 
-static void __postorder_remove(set_node_p root, onRemove onremove);	// 后序遍历删除所有节点
+static rbt_node_p __rbt_new_node(Element ele);					// 创建一个新节点
+static void __rbt_removeall(rbt_node_p root, onRemove onremove);		// 后序遍历删除所有节点
 
-static void __it_push(set_it_p it, set_node_p node);			// 迭代用的压栈函数
-static set_node_p __it_pop(set_it_p it);				// 迭代用的弹栈函数
+static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rb_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
+static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc);				// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL
+
+static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root);		// 以node节点为轴左旋，返回旋转后的根节点
+static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root);		// 以node节点为轴右旋，返回旋转后的根节点
+
+static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc);	// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
+static rbt_node_p __rbt_delete(rbt_node_p dele, rbt_node_p root)		// 从根为root的红黑树中删除一个节点，返回删除后的根节点
+static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root);	// 红黑树插入节点后重新平衡
+static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root);		// 红黑树删除节点后重新平衡
+
+static void __it_push(set_it_p it, rbt_node_p node);			// 迭代用的压栈函数
+static rbt_node_p __it_pop(set_it_p it);				// 迭代用的弹栈函数
 static int __it_stack_empty(set_it_p it);				// 迭代用的空栈判断函数
 
 static set_it_p __iterator(set_p s, int asc);				// 生成一个迭代器
-static set_node_p __it_next(set_it_p it);				// 用Mirros算法中序迭代一个迭代器
-
-static set_node_p __set_get(set_p set, Element ele);			// 在集合set中搜索与ele相同的元素，返回其节点，搜索不到返回NULL
-
-static void __set_fix_balance(set_node_p from, set_node_p to);		// 从from到to自下而上的修正平衡因子
-static void __set_r_left(set_p set, set_node_p node);			// 以node节点为轴左旋
-static void __set_r_right(set_p set, set_node_p node);			// 以node节点为轴右旋
-
-static set_node_p __set_successor(set_node_p p);			// 返回已知节点的后继节点，即按递增顺序排列的后一个节点，当前节点是树中最大值时返回NULL
-static set_node_p __set_min(set_node_p root);				// 返回树中最小的节点
-static set_node_p __set_max(set_node_p root);				// 返回树中最大的节点
-static set_node_p __set_first_ubparent(set_node_p node);		// 从当前节点开始向上调整父节点的平衡因子直到第一个平衡因子非0的父节点，并返回该父节点
-static void __set_after_remove(set_p set, set_node_p del);		// 调整删除节点后的AVL树结构并修正平衡因子
+static rbt_node_p __it_next(set_it_p it);				// 用Mirros算法中序迭代一个迭代器
 
 /**
  * 创建一个Set，返回句柄
@@ -114,9 +125,7 @@ int set_destroy(Set s)
 	if (set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		set_node_p p = set->root;
-		/* 删除所有节点，用后序遍历逐个释放每一个节点，但不释放其中的元素 */
-		__postorder_remove(p, NULL);
+		__rbt_removeall(set->root, NULL);		/* 删除所有节点，用后序遍历逐个释放每一个节点，但不释放其中的元素 */
 		if (__MultiThreads__ == 1) {
 			pthread_mutex_unlock(&(set->mut));
 			pthread_mutex_destroy(&(set->mut));
@@ -178,11 +187,11 @@ Element set_search(Set s, Element ele)
 {
 	Element ret = NULL;
 	set_p set = (set_p)container_get(s, Set_t);
-	if (ele != NULL && set != NULL) {
+	if (ele != NULL && set != NULL && set->root != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		set_node_p node = __set_get(set, ele);
-		ret = (node == NULL ? NULL : node->element);
+		rbt_node_p result = __rbt_search(ele, set->root, set->cmpfunc);
+		ret = (result == NULL ? NULL : node->element);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
@@ -203,121 +212,9 @@ int set_add(Set s, Element ele)
 	if (ele != NULL && set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		int exists = 0;				// 元素是否已经存在的标识
-		set_node_p fbn = NULL;			// firstBalanceNode
-		unsigned int path = 1;			// 记录从fbn开始往下的路径，以1为开始标记，每一位的0表示向左1表示向右
-		int k = 0;				// 开始位置
-		set_node_p p = set->root;		// 当前搜索点
-		set_node_p parent = NULL;		// 搜索点的父节点
-		int cmp = 0;
-		while (p != NULL) {
-			if (p->balance != 0) {
-				fbn = p;
-				path = 1;
-				k = 0;
-			}
-			parent = p;
-			cmp = set->cmpfunc(ele, p->element);
-			if (cmp < 0) {			// ele < p->element，向左走
-				k++;
-				p = p->left;
-				path = (path << 1);	// 向左走就是在path后面加一个0
-			} else if (cmp > 0) {		// ele > p->element，向右走
-				k++;
-				p = p->right;
-				path = (path << 1);
-				path++;			// 向右走就是在path后面加一个1
-			} else {			// ele == p->element，已经有这个元素，不做任何操作直接退出
-				exists = 1;
-				break;
-			}
-		}
-		if (!exists) {				// 元素不存在的情况下进行添加，否则直接退出并返回-1
-			set_node_p nnode = (set_node_p)malloc(sizeof(set_node_t));	// 新节点
-			nnode->element = ele;
-			nnode->left = NULL;
-			nnode->right = NULL;
-			nnode->parent = parent;			// 如果root为NULL，那么上一个搜索循环必定直接结束，可以断言此时parent也必定为NULL
-			nnode->balance = 0;
-			if (set->root == NULL)
-				set->root = nnode;
-			else					// 如果root不为NULL，cmp至少经历过一次比较，因为元素重复的情况在这里已经被排除，所以最后一次必定是ele和parent的比较
-				if (cmp < 0)			// 比父节点小，插入为左子节点
-					parent->left = nnode;
-				else				// 否则肯定比父节点大，因为相同的情况已经被排除，插入为右子节点
-					parent->right = nnode;
-			/* 
-			 * 开始进行AVL树维护，首先要判断是否需要旋转，有三种情况不需要旋转：
-			 *	1. 没有找到非平衡点，判断依据为fbn == NULL，记为C1
-			 *	2. 存在非平衡点，但因为新节点的加入变成了平衡点，分为以下两种情况:
-			 *		2.1 最后一个非平衡点向右倾斜，而新节点在它的左子树，判断依据为fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0，记为C2
-			 *		2.2 最后一个非平衡点向左倾斜，而新节点在它的右子树，判断依据为fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1，记为C3
-			 * 由此可以得到需要进行旋转的条件是:
-			 *	A == !(C1 || C2 || C3)
-			 *	判断式为：fbn != NULL && !(fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0) && !(fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1)
-			 *	又：bfn != NULL时，可以断言：fbn->balance != 0，即不是1就是-1，且k >= 1，即可以计算走向值(path >> (k - 1)) & 1，该走向值非0即1
-			 *	所以可以断言该判断式有效，然后在!C1的前提下化简为更易理解的表达式
-			 *	定义D1 := (fbn->balance == -1), D2 := (fbn->balance == 1)，可知(D1 || D2) == TRUE
-			 *	定义变量dir = (path >> (k - 1)) & 1，可知该值存在
-			 *	定义E1 := (dir == 0), E2 := (dir == 1)，可知(E1 || E2) == TRUE
-			 *	化简：A == !C1 && !C2 && !C3
-			 *		== !C1 && !C2 && !C3
-			 *		== !C1 && (!(D1 && E1) && !(D2 && E2))
-			 *		== !C1 && ((!D1 || !E1) && (!D2 && !E2))
-			 *		== !C1 && ((!D1 && !D2) || (!D1 && !E2) || (!E1 && !D2) || (!E1 && !E2))
-			 *		== !C1 && (!(D1 || D2) || (!D1 && !E2) || (!D2 && !E1) || !(E1 || E2))
-			 *		== !C1 && (0 || (!D1 && !E2) || (!D2 && !E1) || !(E1 || E2))
-			 *		== !C1 && ((!D1 && !E2) || (!D2 && !E1))
-			 *	含义：从新节点到根的自下而上的路径上，存在非平衡节点，且在最后一个非平衡节点处，插入的方向和原倾斜方向相同，导致更加倾斜，破坏了AVL树的平衡性
-			 */
-			if ((fbn == NULL) || (fbn->balance == -1 && ((path >> (k - 1)) & 1) == 0) || (fbn->balance == 1 && ((path >> (k - 1)) & 1) == 1))
-				// 不需要旋转的三种情况，只需要修正平衡因子即可
-				__set_fix_balance(nnode, fbn);
-			else {
-				// 需要旋转的情况，首先还是修正平衡因子
-				__set_fix_balance(nnode, fbn);
-				// 计算从fbn开始的两步走向，因为需要旋转的情况都是走向与倾向相同，所以从最后一个不平衡点开始都至少要走两步，即k >= 2
-				unsigned int dir = (path >> (k - 2)) & 3;	// dir = d1 d2
-				if (dir == 0) {				// 连续两步向左，以fbn->left为轴进行一次右旋
-					fbn->balance = 0;
-					fbn->left->balance = 0;
-					__set_r_right(set, fbn->left);
-				} else if (dir == 3) {			// 连续两步向右，以fbn->right为轴进行一次右旋
-					fbn->balance = 0;
-					fbn->right->balance = 0;
-					__set_r_left(set, fbn->right);
-				} else if (dir == 1) {			// 先左后右，进行两次旋转，先以fbn->left->right为轴左旋，再以fbn->left为轴右旋
-					int bal = fbn->left->right->balance;
-					fbn->left->right->balance = 0;
-					if (bal == 0) {
-						fbn->balance = 0;
-						fbn->left->balance = 0;
-					} else if (bal == 1) {
-						fbn->balance = -1;
-						fbn->left->balance = 0;
-					} else {
-						fbn->balance = 0;
-						fbn->left->balance = 1;
-					}
-					__set_r_left(set, fbn->left->right);
-					__set_r_right(set, fbn->left);
-				} else {				// 先右后左，进行两次旋转，先以fbn->right->left为轴右旋，再以fbn->right为轴左旋
-					int bal = fbn->right->left->balance;
-					fbn->right->left->balance = 0;
-					if (bal == 0) {
-						fbn->balance = 0;
-						fbn->right->balance = 0;
-					} else if (bal == 1) {
-						fbn->balance = 0;
-						fbn->right->balance = -1;
-					} else {
-						fbn->balance = 1;
-						fbn->right->balance = 0;
-					}
-					__set_r_right(set, fbn->right->left);
-					__set_r_left(set, fbn->right);
-				}
-			}
+		rbt_node_p r = __rbt_insert(ele, set->root, set->cmpfunc);
+		if (r != NULL) {		// 插入时如果元素重复则返回NULL，否则返回插入后的红黑树的根节点，这是因为插入操作可能改变树的根节点
+			set->root = r;
 			set->size++;
 			ret = 0;
 		}
@@ -338,45 +235,15 @@ Element set_remove(Set s, Element ele)
 {
 	Element ret = NULL;
 	set_p set = (set_p)container_get(s, Set_t);
-	if (ele != NULL && set != NULL) {
+	if (ele != NULL && set != NULL && set->root != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		set_node_p del = __set_get(set, ele);			// 查找要删除的节点
-		set_node_p todel = NULL;				// 真正的待删除节点
-		if (del != NULL) {					// 查找不到要删除的节点的话直接返回NULL
-			if (del->left == NULL || del->right == NULL)
-				todel = del;				// 待删除节点最多只有一个子节点，那么就删除它
-			else
-				todel = __set_successor(del);		// 待删除节点有两个子节点，那么删除它的后继节点
+		rbt_node_p node = __rbt_search(ele, set->root, set->cmpfunc);
+		if (node != NULL) {		// 找到要删除的元素
+			ret = node->element;
+			set->root = __rbt_delete(node, set->root);
+			set->size--;
 		}
-		/* 寻找第一个调整后不平衡的父节点 */
-		set_node_p fubp = __set_first_ubparent(todel);		// fubp: first unbalance parent
-		/* 获取待删除节点的子节点，根据二叉搜索树删除节点的规则，todel节点最多只有一个子节点 */
-		set_node_p next = NULL;
-		if (todel->left != NULL)
-			next = todel->left;
-		else
-			next = todel->right;
-		/* 删除节点todel */
-		if (next != NULL)
-			next->parent = todel->parent;
-		if (todel->parent == NULL)
-			set->root = next;
-		else if (todel->parent->left == todel)
-			todel->parent->left = next;
-		else
-			todel->parent->right = next;
-		/* 保留要返回的元素 */
-		ret = del->element;
-		/* 如果del和todel不是同一个节点，那么把todel节点中的元素换到del节点中去保存 */
-		if (todel != del)
-			del->element = todel->element;
-		/* 销毁todel节点 */
-		free(todel);
-		/* 删除完成，从fubp开始修正平衡因子，维护AVL树结构 */
-		__set_after_remove(set, fubp);
-		/* 修改集合的size值 */
-		set->size--;
 		if (set->size == 0)
 			set->root = NULL;
 		if (__MultiThreads__ == 1)
@@ -397,9 +264,7 @@ void set_removeall(Set s, onRemove onremove)
 	if (set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		set_node_p p = set->root;
-		/* 删除所有节点，用后序遍历逐个释放每一个节点，用onremove参数进行元素的后续处理 */
-		__postorder_remove(p, onremove);
+		__rbt_removeall(set->root, onremove);	/* 删除所有节点，用后序遍历逐个释放每一个节点，用onremove参数进行元素的后续处理 */
 		set->size = 0;
 		set->root = NULL;
 		if (__MultiThreads__ == 1)
@@ -420,7 +285,7 @@ SetIterator set_iterator(Set s)
 	if (set != NULL && set->root != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		ret = __iterator(set, 1);
+		ret = __iterator(set, __IT_ASC);
 		ret->set = s;
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
@@ -441,7 +306,7 @@ SetIterator set_riterator(Set s)
 	if (set != NULL && set->root != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		ret = __iterator(set, 0);
+		ret = __iterator(set, __IT_DESC);
 		ret->set = s;
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
@@ -463,7 +328,7 @@ Element set_next(SetIterator *it)
 	if (set != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
-		set_node_p next = __it_next(iterator);
+		rbt_node_p next = __it_next(iterator);
 		ret = (next == NULL ? NULL : next->element);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
@@ -515,23 +380,23 @@ Set set_minus(Set s1, Set s2)
 	return ret;
 }
 
-static void __postorder_remove(set_node_p root, onRemove onremove)	// 后序遍历删除所有节点
+static void __rbt_removeall(rbt_node_p root, onRemove onremove)		// 后序遍历删除所有节点
 {
 	if (root != NULL) {
-		__postorder_remove(root->left, onremove);
-		__postorder_remove(root->right, onremove);
+		__rbt_removeall(root->left, onremove);
+		__rbt_removeall(root->right, onremove);
 		if (onremove != NULL)
 			onremove(root->element);
 		free(root);
 	}
 }
 
-static void __it_push(set_it_p it, set_node_p node)			// 迭代用的压栈函数
+static void __it_push(set_it_p it, rbt_node_p node)			// 迭代用的压栈函数
 {
 	*(it->top++) = node;
 }
 
-static set_node_p __it_pop(set_it_p it)					// 迭代用的弹栈函数
+static rbt_node_p __it_pop(set_it_p it)					// 迭代用的弹栈函数
 {
 	return *(--it->top);
 }
@@ -545,9 +410,11 @@ static set_it_p __iterator(set_p set, int asc)				// 生成一个迭代器
 {
 	set_it_p ret = (set_it_p)malloc(sizeof(set_it_t));
 	ret->asc = asc;
-	ret->stack = (set_node_p *)malloc(set->size * sizeof(set_node_p));
+	unsigned int len = lg2(set->size + 1);
+	len = len << 1;			// 红黑树最大树高度小于2*lg2(size+1)
+	ret->stack = (rbt_node_p *)malloc(len  * sizeof(rbt_node_p));
 	ret->top = ret->stack;
-	set_node_p current = set->root;
+	rbt_node_p current = set->root;
 	while (current != NULL) {
 		__it_push(ret, current);
 		current = ret->asc ? current->left : current->right;
@@ -555,12 +422,12 @@ static set_it_p __iterator(set_p set, int asc)				// 生成一个迭代器
 	return ret;
 }
 
-static set_node_p __it_next(set_it_p it) {				// 中序迭代一个迭代器
-	set_node_p ret = NULL;
+static rbt_node_p __it_next(set_it_p it) {					// 中序迭代一个迭代器
+	rbt_node_p ret = NULL;
 	if (!__it_stack_empty(it)) {
 		ret = __it_pop(it);
 		if (it->asc ? ret->right != NULL : ret->left != NULL) {
-			set_node_p current = it->asc ? ret->right : ret->left;
+			rbt_node_p current = it->asc ? ret->right : ret->left;
 			while (current != NULL) {
 				__it_push(it, current);
 				current = it->asc ? current->left : current->right;
@@ -570,192 +437,411 @@ static set_node_p __it_next(set_it_p it) {				// 中序迭代一个迭代器
 	return ret;
 }
 
-static set_node_p __set_get(set_p set, Element ele)			// 在集合set中搜索与ele相同的元素，返回其节点，搜索不到返回NULL
+/**
+ * 算法描述：
+ * ITERATIVE-TREE-SEARCH(x, k)
+ * 1	while x != NIL and k != key[x]
+ * 2		do if k < key[x]
+ * 3			then x := left[x]
+ * 4			else x := right[x]
+ * 5	return x
+ */
+static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rb_node_p *save)	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
 {
-	set_node_p p = set->root;
-	while (p != NULL) {
-		int cmp = set->cmpfunc(ele, p->element);
+	rbt_node_p ret = root, parent = NULL;
+	int cmp;
+	while (ret != NULL && (cmp = cmpfunc(ele, p->element)) != 0) {
+		parent = ret;
 		if (cmp < 0)
-			p = p->left;
-		else if (cmp > 0)
-			p = p->right;
-		else
-			break;
-	}
-	return p;
-}
-
-static void __set_fix_balance(set_node_p from, set_node_p to)		// 从from到to自下而上的修正平衡因子
-{
-	set_node_p nnode = from;
-	while (nnode != to) {
-		if (nnode->parent == NULL)
-			break;
-		if (nnode == nnode->parent->left)
-			nnode->parent->balance++;
-		else
-			nnode->parent->balance--;
-		nnode = nnode->parent;
-	}
-}
-
-static void __set_r_left(set_p set, set_node_p node)			// 以node节点为轴左旋
-{
-	set_node_p parent = node->parent;				// 断言: 用作旋转的轴的节点必然不是root
-	if (parent == set->root) {
-		set->root = node;
-		node->parent = NULL;
-	} else {
-		node->parent = parent->parent;
-		if (parent->parent->left == parent)
-			parent->parent->left = node;
-		else
-			parent->parent->right = node;
-	}
-	parent->right = node->left;
-	if (node->left != NULL)
-		node->left->parent = parent;
-	node->left = parent;
-	parent->parent = node;
-}
-
-static void __set_r_right(set_p set, set_node_p node)			// 以node节点为轴右旋
-{
-	set_node_p parent = node->parent;
-	if (parent == set->root) {
-		set->root = node;
-		node->parent = NULL;
-	} else {
-		node->parent = parent->parent;
-		if (parent->parent->left == parent)
-			parent->parent->left = node;
-		else
-			parent->parent->right = node;
-	}
-	parent->left = node->right;
-	if (node->right != NULL)
-		node->right->parent = parent;
-	node->right = parent;
-	parent->parent = node;
-}
-
-static set_node_p __set_successor(set_node_p p)		// 返回已知节点的后继节点，即按递增顺序排列的后一个节点，当前节点是树中最大值时返回NULL
-{
-	// 如果这个节点有右子树则返回右子树中的最小节点，否则向上寻找直到第一个向右转的父节点(当前节点在该节点的左子树里)，没有向右转的父节点则返回NULL
-	set_node_p ret = NULL;
-	if (p != NULL) {
-		set_node_p tmp = p;
-		if (tmp->right != NULL) {
-			ret = __set_min(tmp->right);
-		} else {
-			ret = tmp->parent;
-			while (ret != NULL && tmp == ret->right) {
-				tmp = ret;
-				ret = ret->parent;
-			}
-		}
-	}
-	return ret;
-}
-
-static set_node_p __set_min(set_node_p root)		// 返回树中最小的节点
-{
-	set_node_p ret = root;
-	if (ret != NULL)
-		while (ret->left != NULL)
 			ret = ret->left;
+		else
+			ret = ret->right;
+	}
+	if (!ret && save)	// ret == NULL: 1) root == NULL, 此时parent == NULL; 2) root != NULL, 此时parent指向插入点
+		*save = parent;
 	return ret;
 }
 
-static set_node_p __set_max(set_node_p root)		// 返回树中最大的节点
+static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc)		// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL，调用__rbt_search_aux()实现
 {
-	set_node_p ret = root;
-	if (ret != NULL)
-		while (ret->right != NULL)
-			ret = ret->right;
-	return ret;
+	return __rbt_search_aux(ele, root, cmpfunc, NULL);
 }
 
 /**
- * 从父节点开始自下而上修正平衡因子直到找到一个非0平衡因子的节点或抵达root，根据二叉平衡树删除节点的规则，删除节点必定导致节点所在子树的高度减少1层，因此修正后有三种情况
- * 1. 修正后balance == 0: 说明原先的平衡因子为1或者-1，即原先由一层的平衡叉，删除后变为0，父节点的高度减1，因此要继续向上一层父节点循环查看
- * 2. 修正后balance == 1或-1: 说明原先完全平衡，现在某一子树减少了一层，但是父节点的总高度不变，因此不会影响更上层的平衡因子，修正结束，节点删除后不需要旋转处理
- * 3. 修正后balance == 2或-2: 树的平衡性已经破坏，节点删除后要进行旋转处理
+ * 算法描述：
+ *-----------------------------------------------------------
+ *   node             rnode
+ *    / \     	      / \
+ *   a  rnode  ==>   node  y
+ *      / \         / \
+ *     b   y       a   b
+ *-----------------------------------------------------------
+ * LEFT-ROTATE(T, x)
+ * 1	y := right[x]				// Set y.
+ * 2	right[x] := left[y]			// Turn y's left subtree into x's right subtree
+ * 3	if left[y] != nil[T]
+ * 4		then p[left[y]] := x
+ * 5	p[y] := p[x]
+ * 6	if p[x] == nil[T]
+ * 7		then root[T] := y;
+ * 8		else if x == left[p[x]]
+ * 9			then left[p[x]] := y
+ *10			else right[p[x]] := y
+ *11	left[y] := x;				// Put x on y's left
+ *12	p[x] := y;
  */
-static set_node_p __set_first_ubparent(set_node_p node)			// 从当前节点开始向上调整父节点的平衡因子直到第一个平衡因子非0的父节点，并返回该父节点
+static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以node节点为轴左旋，返回旋转后的根节点
 {
-	set_node_p pend = node;
-	while (pend != NULL) {
-		if (pend->parent == NULL)
-			break;
-		if (pend == pend->parent->left)
-			pend->parent->balance--;
+	rbt_node_p rnode = node->right;			// 1
+	if (node->right = rnode->left)			// 2,3
+		rnode->left->parent = node;		// 4
+	if (rnode->parent = node->parent)		// 5,6
+		if (node == node->parent->right)	// 8,9,10
+			node->parent->right = rnode;
 		else
-			pend->parent->balance++;
-		pend = pend->parent;
-		if (pend->balance != 0)
-			break;
-	}
-	return pend;
+			node->parent->left = rnode;
+	else
+		root = rnode;				// 7
+	rnode->left = node;				// 11
+	node->parent = rnode;				// 12
+	return root;
 }
 
-static void __set_after_remove(set_p set, set_node_p del)		// 调整删除节点后的AVL树结构并修正平衡因子
+/**
+ * 算法描述
+ *----------------------------------------------------------
+ *     node           lnode 
+ *     /  \           /  \
+ *   lnode y   ==>   a   node 
+ *   / \                 / \
+ *  a   b               b   y
+ *----------------------------------------------------------
+ * 算法与左旋对称，即对换left和right分支即可，不再描述伪代码
+ */
+static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)		// 以node节点为轴右旋，返回旋转后的根节点
 {
-	if (del == NULL || del->balance == 1 || del->balance == -1 || del->balance == 0)	// 节点为NULL或已经平衡，则直接退出
-		return;
-	if (del->balance == 2) {					// 左子树比右子树高2层，要做右旋调整
-		if (del->left->balance == 0) {				// R0旋转
-			del->balance = 1;
-			del->left->balance = -1;
-			__set_r_right(set,del->left);
-			return;						// R0旋转可以保证AVL树整体平衡，所以直接返回
-		} else if (del->left->balance == 1) {			// R1旋转
-			del->balance = 0;
-			del->left->balance = 0;
-			__set_r_right(set, del->left);
-		} else {						// LR旋转
-			if (del->left->right->balance == 0) {
-				del->balance = 0;
-				del->left->balance = 0;
-			} else if (del->left->right->balance == 1) {
-				del->balance = -1;
-				del->left->balance = 0;
+	rbt_node_p lnode = node->left;
+	if (node->left = lnode->right)
+		lnode->right->parent = node;
+	if (lnode->parent = node->parent)
+		if (node == node->parent->right)
+			node->parent->right = lnode;
+		else
+			node->parent->left = lnode;
+	else
+		root = lnode;
+	lnode->right = node;
+	node->parent = lnode;
+	return root;
+}
+
+static rbt_node_p __rbt_new_node(Element ele)					// 创建一个新节点
+{
+	set_node_p nnode = (set_node_p)malloc(sizeof(set_node_t));
+	nnode->element = ele;
+	nnode->left = NULL;
+	nnode->right = NULL;
+	nnode->parent = NULL;
+	nnode->color = Red;
+}
+
+/**
+ * 红黑树插入新节点算法描述：
+ * RB-INSERT(T, z)
+ * 1	y := nil[T]
+ * 2	x := root[T]
+ * 3	while x != nil[T]
+ * 4		do y := x
+ * 5			if key[z] < key[x]
+ * 6				then x := left[x]
+ * 7				else x := right[x]
+ * 8	p[z] := y
+ * 9	if y == nil[T]
+ *10		then root[T] := z
+ *11		else if key[z] < key[y]
+ *12			then left[y] := z
+ *13			else right[y] := z
+ *14	left[z] := nil[T]
+ *15	right[z] := nil[T]
+ *16	color[z] := RED
+ *17	RB-INSERT-FIXUP(T, z)
+ *-------------------------------------------------------
+ * 如果插入完成返回根节点，因为插入元素可能导致根节点发生变化；如果已经有相等的元素存在则返回NULL，表示未进行插入操作
+ */
+static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc)		// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
+{
+	rbt_node_p parent = NULL, node;
+	if (node = __rbt_search_aux(ele, root, cmpfunc, &parent))	// 寻找插入点，如果相等的元素已经存在则返回原节点，否则返回NULL并在parent中存放插入点
+		return NULL;
+	node = __rbt_new_node(ele);
+	node->parent = parent;     
+	if (parent)	// 插入点非空，即原树不为空
+		if (cmpfunc(parent->element, ele) > 0)
+			parent->left = node;
+		else
+			parent->right = node;
+	else		// 原树为空树，新节点即为根节点
+		root = node;
+	// 至此二叉查找树的节点插入结束，接下来进行再平衡，修复红黑树的性质并返回根节点
+	return __rbt_insert_rebalance(node, root);
+}
+
+/**
+ * 红黑树删除节点的算法描述：
+ * RB-DELETE(T, z)
+ * 1	if left[z] == nil[T] or right[z] == nil[T]		// 找到真正要删除的节点y
+ * 2		then y := z
+ * 3		else y := TREE-SUCCESSOR(z)			// 求最小后继，就是中序遍历的后继节点
+ * 4	if left[y] != nil[T]
+ * 5		then x := left[y]				// y只有一棵子树
+ * 6		else x := right[y]
+ * 7	p[x] := p[y]						// 红黑树的算法描述中没有NULL，只有哨兵节点nil[T]，所以在算法描述中不判断x是否为NULL
+ * 8	if p[y] == nil[T]
+ * 9		then root[T] := x
+ *10		else if y == left[p[y]]
+ *11			then left[p[y]] := x
+ *12			else right[p[y]] := x
+ *13	if y != z
+ *14		then key[z] := key[y]
+ *15		     copy y's satellite data into z
+ *16	if color[y] == BLACK
+ *17		then RB-DELETE-FIXUP(T, x)
+ *18	return y
+ *--------------------------------------------------------------
+ * 在实现时对算法进行了一些优化调整，在使用中序后继作为替身节点时并非复制替身数据再删除替身，而是把替身节点接到待删除节点的位置，然后销毁待删除节点，从而节省复制元素数据的开销
+ */
+static rbt_node_p __rbt_delete(rbt_node_p dele, rbt_node_p root)	// 从根为root的红黑树中删除一个节点，返回删除后的根节点，注意如果删除了最后一个节点（一定是根节点）那么要返回NULL
+{
+	rbt_node_p child, parent, old, left, node;
+	RBT_Color color;
+
+	old = dele;					// old  = 待删除的节点
+	node = dele;					// 替身节点node，可能就是old自身，也可能是他的中序后继
+	if (node->left && node->right) {	// 情况1：待删除节点左右子节点均存在，在右子树中寻找中序后继作为替身，该替身必定没有左子节点
+		node = node->right;
+		while ((left = node->left) != NULL)
+			node = left;
+		child = node->right;			// child  = 实际删除的节点node的右子节点，也是删除后进行修复的起点
+		parent = node->parent;			// parent = 实际删除的节点node的父节点，也是删除后进行修复的起点的父节点
+		color = node->color;
+		if (child)				// node的右子节点child接替node，接入node的父节点的对应方向上，如果node是根节点，那么child成为新的根节点
+			child->parent = parent;  
+		if (parent)
+			if (parent->left == node)
+				parent->left = child;
+			else
+				parent->right = child;
+		else
+			root = child;
+		if (node->parent == old)		// 如果node的父节点就是要删除的节点old，那么把parent改成node自己，保持在删除后修复时parent和child的正确取值
+			parent = node;
+		node->parent = old->parent;		// 把替身接入到待删除节点的位置，并染成和待删除节点相同的颜色，注意要处理抵达根节点的情况
+		node->color = old->color;
+		node->right = old->right;
+		node->left = old->left;
+		if (old->parent)
+			if (old->parent->left == old)
+				old->parent->left = node;
+			else
+				old->parent->right = node;
+		else
+			root = node;
+		old->left->parent = node;
+		if (old->right)
+			old->right->parent = node;	// 待删除节点左右子树均存在的情况处理完毕，修复的起点child, parent和根节点root均处理正确，可以释放old并进行红黑树修复
+	} else {				// 情况2：待删除节点最多只有一个子树
+		if (!node->left)
+			child = node->right;		// 左子树为空，此处包含右子树也为空的情况，所以当待删除节点左子树为空时，取到的child有可能为空
+		else if (!node->right)
+			child = node->left;		// 右子树为空，此处else if是多余的，因为已经判断过左子树不为空且最多只有一棵子树了，所以此时右子树必然为空，左子树必然不空，child必然不空
+		parent = node->parent;
+		color = node->color;
+		if (child)				// 子树绕过待删除节点直接接到待删除节点的父节点相应方向上，游离出待删除节点，注意处理抵达根节点的情况
+			child->parent = parent;
+		if (parent)
+			if (parent->left == node)
+				parent->left = child;
+			else
+				parent->right = child;
+		else
+			root = child;
+	}
+	free(old);				// 销毁待删除的节点
+	if (color == BLACK)			// 实际消失的位置原有节点的颜色，对于情况一是替身的颜色，情况二则没有替身，就是被删除节点的颜色
+		root = __rbt_delete_rebalance(child, parent, root);	// 恢复红黑树性质，此处child是真正消失了一个节点的位置，parent是出现在消失节点位置上的新节点的父节点
+	return root;
+}
+
+/**
+ * 红黑树插入新节点后重新平衡的算法描述：
+ * 需要修复的情况有三种，以当前节点的父节点是其祖父节点的左子节点为例
+ * Case 1: 父节点和叔叔节点都是红色
+ * Case 2: 父节点为红色，叔叔节点为黑色，当前节点是父节点的右子节点
+ * Case 3: 父节点为红色，叔叔节点为黑色，当前节点是父节点的左子节点
+ * 修复刚开始的第一个循环里，只有可能出现Case 1，对Case 1进行修复后有可能导致在祖父节点处变成Case 2或Case 3
+ * 修复Case 2必然会导致原父节点处出现Case 3，因此应该接下去马上进行修复
+ * 修复Case 3后可能会变成Case 1，因此重新进入循环即可
+ * RB-INSERT-FIXUP(T, z)
+ * 1	while color[p[z]] == RED
+ * 2		do if p[z] == left[p[p[z]]]					// Parent is the left son of grandparent
+ * 3			then y := right[p[p[z]]]				// Put uncle node to y
+ * 4				if color[y] == RED				// Case 1 detected
+ * 5					then color[p[z]] := BLACK		// Fix Case 1: Paint parent to BLACK
+ * 6					     color[y] := BLACK			// Fix Case 1: Paint uncle to BLACK
+ * 7					     color[p[p[z]]] := RED		// Fix Case 1: Paint grandparent to RED
+ * 8					     z := p[p[z]]			// Fix Case 1: Let z := grandparent and loop again
+ * 9					else if z == right[p[z]]		// Case 2 detected
+ *10						then z := p[z]			// Fix Case 2: Let z := parent as the pivot of rotate
+ *11						     LEFT-RETATE(T, z)		// Fix Case 2: Left rotate
+ *12						color[p[z]] := BLACK		// Fix Case 3: Paint parent to BLACK
+ *13						color[p[p[z]]] := RED		// Fix Case 3: Paint grandparent to RED
+ *14						RIGHT-ROTATE(T, p[p[z]])	// Fix Case 3: Right rotate on grandparent
+ *15			else (For the condition that the parent is the right son of grandparent, same as then clause with "right" and "left" exchanged)
+ */
+static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)	// 红黑树插入节点后重新平衡
+{
+	rbt_node_p parent, grandpa, uncle, temp;
+	while ((parent = node->parent) && parent->color == Red) {		// 1
+		grandpa = parent->parent;
+		if (parent == grandpa->left) {					// 2
+			uncle = grandpa->right;					// 3
+			if (uncle && uncle->color == Red) {			// 4 如果uncle是NULL，那么按规则默认NULL的颜色为黑
+				parent->color = Black;				// 5
+				uncle->color = Black;				// 6
+				grandpa->color = Red;				// 7
+				node = grandpa;					// 8
 			} else {
-				del->balance = 0;
-				del->left->balance = 1;
+				if (parent->right == node) {			// 9
+					root = __rbt_rotate_left(parent, root);	// 10,11
+					temp = parent;
+					parent = node;
+					node = temp;
+				}
+				parent->color = Black;				// 12
+				grandpa->color = Red;				// 13
+				root = __rbt_rotate_right(grandpa, root);	// 14
 			}
-			del->left->right->balance = 0;
-			__set_r_left(set, del->left->right);
-			__set_r_right(set, del->left);
-		}
-	} else if (del->balance == -2) {				// 右子树比左子树高2层，要做左旋调整
-		if (del->right->balance == 0) {				// L0旋转
-			del->balance = -1;
-			del->right->balance = 1;
-			__set_r_left(set, del->right);
-			return;						// L0旋转可以保证AVL树整体平衡，所以直接返回
-		} else if (del->right->balance == -1) {			// L1旋转
-			del->balance = 0;
-			del->right->balance = 0;
-			__set_r_left(set, del->right);
-		} else {						// RL旋转
-			if (del->right->left->balance == 0) {
-				del->balance = 0;
-				del->right->balance = 0;
-			} else if (del->right->left->balance == -1) {
-				del->balance = 1;
-				del->right->balance = 0;
+		} else {							// 15
+			uncle = grandpa->left;
+			if (uncle && uncle->color == Red) {
+				parent->color = Black;
+				uncle->color = Black;
+				grandpa->color = Red;
+				node = grandpa;
 			} else {
-				del->balance = 0;
-				del->right->balance = -1;
+				if (parent->left == node) {
+					root = __rbt_rotate_right(parent, root);
+					temp = parent;
+					parent = node;
+					node = temp;
+				}
+				parent->color = Black;
+				grandpa->color = Red;
+				root = __rbt_rotate_left(grandpa, root);
 			}
-			del->right->left->balance = 0;
-			__set_r_right(set, del->right->left);
-			__set_r_left(set, del->right);
 		}
 	}
-	// R1, LR, L1, RL旋转后可能更上层的平衡性被破坏，所以要继续向根部寻找非平衡点进行调整，直到根节点，使用递归方法进行循环
-	del = __set_first_ubparent(del->parent);
-	__set_after_remove(set, del);					// 递归
+	root->color = Black;							// 根节点必须为黑色
+	return root;
+}
+
+/**
+ * 红黑树删除节点后修复平衡算法的描述：
+ * 当前节点的颜色为黑才需要修复，需要修复的情况有四种，以当前节点在父节点的左分支为例
+ * Case 1: 兄弟节点为红色
+ * Case 2: 兄弟节点为黑色，且兄弟节点的两个子节点均为黑色
+ * Case 3: 兄弟节点为黑色，兄弟节点的左子节点为红色，右子节点为黑色
+ * Case 4: 兄弟节点为黑色，兄弟节点的右子节点为红色，左子节点颜色任意
+ * RB-DELETE-FIXUP(T, x)
+ * 1	while x != root[T] and color[x] == BLACK
+ * 2		do if x == left[p[x]]
+ * 3			then w := right[p[x]]					// w: sibling node
+ * 4				if color[w] == RED				// Case 1 detected, fix case 1 will paint sibling to black, so could cause case 2, 3
+ * 5					then color[w] := BLACK			// Fix Case 1
+ * 6					     color[p[x]] := RED			// Fix Case 1
+ * 7					     LEFT-ROTATE(T, p[x])		// Fix Case 1
+ * 8					     w := right[p[x]]			// Fix Case 1
+ * 9				if color[left[w]] == BLACK and color[right[w]] == BLACK		// Case 2 detected
+ *10					then color[w] := RED			// Fix Case 2
+ *11					     x := p[x]				// Fix Case 2, paint sibling to red, loop again as parent, then loop will definitely stop and paint parent to black
+ *12					else if color[right[w]] == BLACK	// Case 3 detected
+ *13						then color[left[w]] := BLACK	// Fix Case 3
+ *14						     color[w] := RED		// Fix Case 3
+ *15						     RIGHT-ROTATE(T, w)		// Fix Case 3
+ *16						     w := right[p[x]]		// Fix Case 3
+ *17						color[w] := color[p[x]]		// Fix Case 4, fix case 3 definitely cause case 4, and case 4 can only be caused by fixing case 3
+ *18						color[p[x]] := BLACK		// Fix Case 4
+ *19						color[right[w]] := BLACK	// Fix Case 4
+ *20						LEFT-ROTATE(T, p[x])		// Fix Case 4
+ *21						x := root[T]			// Fix Case 4, algorithm must be finished after fixed case 4
+ *22			else (same as then clause with "right" and "left" exchanged)
+ *23	color[x] := BLACK
+ */
+static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root)	// 红黑树删除节点后重新平衡
+{
+	rbt_node_p sibling;
+	while ((!node || node->color == BLACK) && node != root) {
+		if (parent->left == node) {
+			sibling = parent->right;
+			if (sibling->color == RED) {		//情况1：兄弟节点是红色的
+				sibling->color = BLACK;
+				parent->color = RED;
+				root = __rbt_rotate_left(parent, root);
+				sibling = parent->right;
+			}
+			if ((!sibling->left || sibling->left->color == BLACK) && (!sibling->right || sibling->right->color == BLACK)) {		// 情况2：兄弟和兄弟的两个子节点都是黑色的
+				sibling->color = RED;
+				node = parent;
+				parent = node->parent;	// 修正parent变量，保证进入循环时变量正确
+			} else {
+				if (!sibling->right || sibling->right->color == BLACK) {	//情况3：兄弟是黑色的，且兄弟的左子节点是红色，右子节点是黑色
+					if (sibling->left)
+						sibling->left->color = BLACK;
+					sibling->color = RED;
+					root = __rbt_rotate_right(sibling, root);
+					sibling = parent->right;
+				}
+				//情况4：兄弟是黑色的，且兄弟的右子节点是红色的，左子节点无所谓，这种情况只能且必然在情况3修复后出现
+				sibling->color = parent->color;
+				parent->color = BLACK;
+				if (sibling->right)
+					sibling->right->color = BLACK;
+				root = __rbt_rotate_left(parent, root);
+				node = root;
+				break;		// 情况4修复完毕后，算法必然结束，因此跳出循环，把根节点染成黑色即可
+			}
+		} else {
+			sibling = parent->left;
+			if (sibling->color == RED) {
+				sibling->color = BLACK;
+				parent->color = RED;
+				root = __rbt_rotate_right(parent, root);
+				sibling = parent->left;
+			}
+			if ((!sibling->left || sibling->left->color == BLACK) && (!sibling->right || sibling->right->color == BLACK)) {  
+				sibling->color = RED;
+				node = parent;
+				parent = node->parent;
+			} else {
+				if (!sibling->left || sibling->left->color == BLACK) {
+					if (sibling->right)
+						sibling->right->color = BLACK;
+					sibling->color = RED;
+					root = __rbt_rotate_left(sibling, root);
+					sibling = parent->left;
+				}
+				sibling->color = parent->color;
+				parent->color = BLACK;
+				if (sibling->left)
+					sibling->left->color = BLACK;
+				root = __rbt_rotate_right(parent, root);
+				node = root;
+				break;
+			}
+		}
+	}
+	if (node)
+		node->color = BLACK;		// 根节点设置为黑色
+	return root;
 }
 
