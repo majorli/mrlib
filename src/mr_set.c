@@ -767,7 +767,7 @@ static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt
 {
 	rbt_node_p sibling;
 	while ((!node || node->color == Black) && node != root) {
-		if (parent->left == node) {			// 第一次进入循环时，node == root的条件保证了parent不会为NULL
+		if (parent->left == node) {			// 进入循环时，node == root的条件保证了parent不会为NULL
 			sibling = parent->right;
 			if (sibling->color == Red) {		//情况1：兄弟节点是红色的
 				sibling->color = Black;
