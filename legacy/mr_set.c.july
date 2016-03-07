@@ -65,14 +65,14 @@ Set set_minus(Set s1, Set s2);
 static rbt_node_p __rbt_new_node(Element ele);					// 创建一个新节点
 static void __rbt_removeall(rbt_node_p root, onRemove onremove);		// 后序遍历删除所有节点
 
-static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
+static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rb_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
 static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc);				// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL
 
 static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root);		// 以node节点为轴左旋，返回旋转后的根节点
 static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root);		// 以node节点为轴右旋，返回旋转后的根节点
 
 static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc);	// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
-static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root);		// 从根为root的红黑树中删除一个节点，返回删除后的根节点
+static rbt_node_p __rbt_delete(rbt_node_p dele, rbt_node_p root)		// 从根为root的红黑树中删除一个节点，返回删除后的根节点
 static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root);	// 红黑树插入节点后重新平衡
 static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root);		// 红黑树删除节点后重新平衡
 
@@ -191,7 +191,7 @@ Element set_search(Set s, Element ele)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
 		rbt_node_p result = __rbt_search(ele, set->root, set->cmpfunc);
-		ret = (result == NULL ? NULL : result->element);
+		ret = (result == NULL ? NULL : node->element);
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
@@ -244,6 +244,8 @@ Element set_remove(Set s, Element ele)
 			set->root = __rbt_delete(node, set->root);
 			set->size--;
 		}
+		if (set->size == 0)
+			set->root = NULL;
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
@@ -444,11 +446,11 @@ static rbt_node_p __it_next(set_it_p it) {					// 中序迭代一个迭代器
  * 4			else x := right[x]
  * 5	return x
  */
-static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save)	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
+static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rb_node_p *save)	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
 {
 	rbt_node_p ret = root, parent = NULL;
 	int cmp;
-	while (ret != NULL && (cmp = cmpfunc(ele, ret->element)) != 0) {
+	while (ret != NULL && (cmp = cmpfunc(ele, p->element)) != 0) {
 		parent = ret;
 		if (cmp < 0)
 			ret = ret->left;
@@ -491,9 +493,9 @@ static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc)		/
 static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以node节点为轴左旋，返回旋转后的根节点
 {
 	rbt_node_p rnode = node->right;			// 1
-	if ((node->right = rnode->left))		// 2,3
+	if (node->right = rnode->left)			// 2,3
 		rnode->left->parent = node;		// 4
-	if ((rnode->parent = node->parent))		// 5,6
+	if (rnode->parent = node->parent)		// 5,6
 		if (node == node->parent->right)	// 8,9,10
 			node->parent->right = rnode;
 		else
@@ -519,9 +521,9 @@ static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以nod
 static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)		// 以node节点为轴右旋，返回旋转后的根节点
 {
 	rbt_node_p lnode = node->left;
-	if ((node->left = lnode->right))
+	if (node->left = lnode->right)
 		lnode->right->parent = node;
-	if ((lnode->parent = node->parent))
+	if (lnode->parent = node->parent)
 		if (node == node->parent->right)
 			node->parent->right = lnode;
 		else
@@ -535,13 +537,12 @@ static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)		// 以no
 
 static rbt_node_p __rbt_new_node(Element ele)					// 创建一个新节点
 {
-	rbt_node_p nnode = (rbt_node_p)malloc(sizeof(rbt_node_t));
+	set_node_p nnode = (set_node_p)malloc(sizeof(set_node_t));
 	nnode->element = ele;
 	nnode->left = NULL;
 	nnode->right = NULL;
 	nnode->parent = NULL;
 	nnode->color = Red;
-	return nnode;
 }
 
 /**
@@ -570,7 +571,7 @@ static rbt_node_p __rbt_new_node(Element ele)					// 创建一个新节点
 static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc)		// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
 {
 	rbt_node_p parent = NULL, node;
-	if ((node = __rbt_search_aux(ele, root, cmpfunc, &parent)))	// 寻找插入点，如果相等的元素已经存在则返回原节点，否则返回NULL并在parent中存放插入点
+	if (node = __rbt_search_aux(ele, root, cmpfunc, &parent))	// 寻找插入点，如果相等的元素已经存在则返回原节点，否则返回NULL并在parent中存放插入点
 		return NULL;
 	node = __rbt_new_node(ele);
 	node->parent = parent;     
@@ -607,54 +608,67 @@ static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc)		/
  *17		then RB-DELETE-FIXUP(T, x)
  *18	return y
  *--------------------------------------------------------------
- * 寻找中序后继节点的算法描述：
- * TREE-SUCCESSOR(x)
- * 1	if right[x] != nil[T]
- * 2		then return TREE-MINIMUN(right[x])
- * 3	y := p[x]
- * 4	while y != nil[T] and x == right[y]
- * 5		do x := y
- * 6		   y := p[y]
- * 7	return y
- *--------------------------------------------------------------
- * 寻找树中最小节点的算法描述：
- * TREE-MINIMUN(x)
- * 1	while left[x] != nil[T]
- * 2		do x := left[x]
- * 3	return x
- *--------------------------------------------------------------
- * 说明：由于删除节点时仅在符合条件left[z] != nil[T] and right[z] != nil[T]时才去z的中序后继作为替身，所以可以明确这里的TREE-SUCCESSOR算法可以简化为TREE-MINIMUN(right[z])
+ * 在实现时对算法进行了一些优化调整，在使用中序后继作为替身节点时并非复制替身数据再删除替身，而是把替身节点接到待删除节点的位置，然后销毁待删除节点，从而节省复制元素数据的开销
  */
-static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root)	// 从根为root的红黑树中删除一个节点，返回删除后的根节点，注意如果删除了最后一个节点（一定是根节点）那么要返回NULL
+static rbt_node_p __rbt_delete(rbt_node_p dele, rbt_node_p root)	// 从根为root的红黑树中删除一个节点，返回删除后的根节点，注意如果删除了最后一个节点（一定是根节点）那么要返回NULL
 {
-	rbt_node_p remove = node, dnode, parent;
+	rbt_node_p child, parent, old, left, node;
 	RBT_Color color;
 
-	if (node->left && node->right) {				// 1, 2, 3
-		remove = node->right;
-		while (remove->left)
-			remove = remove->left;
-	}
-	color = remove->color;
-	parent = remove->parent;					// dnode为哨兵节点时，其自身无法传递parent参数，用此变量保存并在修正时作为参数
-	if (remove->left)						// 4, 5, 6
-		dnode = remove->left;
-	else
-		dnode = remove->right;
-	if (dnode)							// 7
-		dnode->parent = remove->parent;
-	if (remove->parent)						// 8, 9, 10, 11, 12, remove的子树（唯一或没有）绕过remove接到remove->parent的相应子节点上
-		if (remove->parent->left == remove)
-			remove->parent->left = dnode;
+	old = dele;					// old  = 待删除的节点
+	node = dele;					// 替身节点node，可能就是old自身，也可能是他的中序后继
+	if (node->left && node->right) {	// 情况1：待删除节点左右子节点均存在，在右子树中寻找中序后继作为替身，该替身必定没有左子节点
+		node = node->right;
+		while ((left = node->left) != NULL)
+			node = left;
+		child = node->right;			// child  = 实际删除的节点node的右子节点，也是删除后进行修复的起点
+		parent = node->parent;			// parent = 实际删除的节点node的父节点，也是删除后进行修复的起点的父节点
+		color = node->color;
+		if (child)				// node的右子节点child接替node，接入node的父节点的对应方向上，如果node是根节点，那么child成为新的根节点
+			child->parent = parent;  
+		if (parent)
+			if (parent->left == node)
+				parent->left = child;
+			else
+				parent->right = child;
 		else
-			remove->parent->right = dnode;
-	else
-		root = dnode;						// 经过4-12步，如果remove既没有parent又没有子树，那么说明remove是树里最后一个节点，此时root==dnode==NULL
-	if (remove != node)						// 13, 14, 15, 如果是用了中序后继作为替身，那么把替身中的元素复制到要被删除的节点node中去
-		node->element = remove->element;
-	free(remove);
-	if (color == Black)
-		root = __rbt_delete_rebalance(dnode, parent, root);
+			root = child;
+		if (node->parent == old)		// 如果node的父节点就是要删除的节点old，那么把parent改成node自己，保持在删除后修复时parent和child的正确取值
+			parent = node;
+		node->parent = old->parent;		// 把替身接入到待删除节点的位置，并染成和待删除节点相同的颜色，注意要处理抵达根节点的情况
+		node->color = old->color;
+		node->right = old->right;
+		node->left = old->left;
+		if (old->parent)
+			if (old->parent->left == old)
+				old->parent->left = node;
+			else
+				old->parent->right = node;
+		else
+			root = node;
+		old->left->parent = node;
+		if (old->right)
+			old->right->parent = node;	// 待删除节点左右子树均存在的情况处理完毕，修复的起点child, parent和根节点root均处理正确，可以释放old并进行红黑树修复
+	} else {				// 情况2：待删除节点最多只有一个子树
+		if (!node->left)
+			child = node->right;		// 左子树为空，此处包含右子树也为空的情况，所以当待删除节点左子树为空时，取到的child有可能为空
+		else if (!node->right)
+			child = node->left;		// 右子树为空，此处else if是多余的，因为已经判断过左子树不为空且最多只有一棵子树了，所以此时右子树必然为空，左子树必然不空，child必然不空
+		parent = node->parent;
+		color = node->color;
+		if (child)				// 子树绕过待删除节点直接接到待删除节点的父节点相应方向上，游离出待删除节点，注意处理抵达根节点的情况
+			child->parent = parent;
+		if (parent)
+			if (parent->left == node)
+				parent->left = child;
+			else
+				parent->right = child;
+		else
+			root = child;
+	}
+	free(old);				// 销毁待删除的节点
+	if (color == BLACK)			// 实际消失的位置原有节点的颜色，对于情况一是替身的颜色，情况二则没有替身，就是被删除节点的颜色
+		root = __rbt_delete_rebalance(child, parent, root);	// 恢复红黑树性质，此处child是真正消失了一个节点的位置，parent是出现在消失节点位置上的新节点的父节点
 	return root;
 }
 
@@ -763,69 +777,71 @@ static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)	// �
  *22			else (same as then clause with "right" and "left" exchanged)
  *23	color[x] := BLACK
  */
-static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root)		// 红黑树删除节点后重新平衡
+static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root)	// 红黑树删除节点后重新平衡
 {
 	rbt_node_p sibling;
-	while ((!node || node->color == Black) && node != root) {
-		if (parent->left == node) {			// 第一次进入循环时，node == root的条件保证了parent不会为NULL
+	while ((!node || node->color == BLACK) && node != root) {
+		if (parent->left == node) {
 			sibling = parent->right;
-			if (sibling->color == Red) {		//情况1：兄弟节点是红色的
-				sibling->color = Black;
-				parent->color = Red;
+			if (sibling->color == RED) {		//情况1：兄弟节点是红色的
+				sibling->color = BLACK;
+				parent->color = RED;
 				root = __rbt_rotate_left(parent, root);
 				sibling = parent->right;
 			}
-			if ((!sibling->left || sibling->left->color == Black) && (!sibling->right || sibling->right->color == Black)) {		// 情况2：兄弟和兄弟的两个子节点都是黑色的
-				sibling->color = Red;
+			if ((!sibling->left || sibling->left->color == BLACK) && (!sibling->right || sibling->right->color == BLACK)) {		// 情况2：兄弟和兄弟的两个子节点都是黑色的
+				sibling->color = RED;
 				node = parent;
 				parent = node->parent;	// 修正parent变量，保证进入循环时变量正确
 			} else {
-				if (!sibling->right || sibling->right->color == Black) {	//情况3：兄弟是黑色的，且兄弟的左子节点是红色，右子节点是黑色
+				if (!sibling->right || sibling->right->color == BLACK) {	//情况3：兄弟是黑色的，且兄弟的左子节点是红色，右子节点是黑色
 					if (sibling->left)
-						sibling->left->color = Black;
-					sibling->color = Red;
+						sibling->left->color = BLACK;
+					sibling->color = RED;
 					root = __rbt_rotate_right(sibling, root);
 					sibling = parent->right;
 				}
 				//情况4：兄弟是黑色的，且兄弟的右子节点是红色的，左子节点无所谓，这种情况只能且必然在情况3修复后出现
 				sibling->color = parent->color;
-				parent->color = Black;
+				parent->color = BLACK;
 				if (sibling->right)
-					sibling->right->color = Black;
+					sibling->right->color = BLACK;
 				root = __rbt_rotate_left(parent, root);
 				node = root;
+				break;		// 情况4修复完毕后，算法必然结束，因此跳出循环，把根节点染成黑色即可
 			}
 		} else {
 			sibling = parent->left;
-			if (sibling->color == Red) {
-				sibling->color = Black;
-				parent->color = Red;
+			if (sibling->color == RED) {
+				sibling->color = BLACK;
+				parent->color = RED;
 				root = __rbt_rotate_right(parent, root);
 				sibling = parent->left;
 			}
-			if ((!sibling->left || sibling->left->color == Black) && (!sibling->right || sibling->right->color == Black)) {  
-				sibling->color = Red;
+			if ((!sibling->left || sibling->left->color == BLACK) && (!sibling->right || sibling->right->color == BLACK)) {  
+				sibling->color = RED;
 				node = parent;
 				parent = node->parent;
 			} else {
-				if (!sibling->left || sibling->left->color == Black) {
+				if (!sibling->left || sibling->left->color == BLACK) {
 					if (sibling->right)
-						sibling->right->color = Black;
-					sibling->color = Red;
+						sibling->right->color = BLACK;
+					sibling->color = RED;
 					root = __rbt_rotate_left(sibling, root);
 					sibling = parent->left;
 				}
 				sibling->color = parent->color;
-				parent->color = Black;
+				parent->color = BLACK;
 				if (sibling->left)
-					sibling->left->color = Black;
+					sibling->left->color = BLACK;
 				root = __rbt_rotate_right(parent, root);
 				node = root;
+				break;
 			}
 		}
 	}
 	if (node)
-		node->color = Black;
+		node->color = BLACK;		// 根节点设置为黑色
 	return root;
 }
 
