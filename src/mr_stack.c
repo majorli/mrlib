@@ -1,17 +1,16 @@
-/**
- * "mr_stack.h"，堆栈数据结构处理函数
- *
- * mr_stack库提供一种基于数组构造的线性堆栈，用于实现先进后出的存取元素。
- * 压入新元素时如超出当前堆栈容量，Stack会自动扩展容量，但弹出栈顶元素时不会自动释放空余的空间
- * 基于堆栈的特殊操作规则，堆栈不提供排序和搜索的功能
- * Stack可以保存重复的元素，但不接受NULL
- *
- * Version 1.0.1, 李斌，2016/03/03
- */
-#ifndef MR_STACK_H
-#define MR_STACK_H
+#include <stdlib.h>
+#include <pthread.h>
 
-#include "mr_common.h"
+#include "container.h"
+#include "mr_stack.h"
+
+Stack st_create(ElementType type);
+int st_destroy(Stack st);
+int st_isempty(Stack st);
+size_t st_size(Stack st);
+int st_push(Stack st, Element ele);
+Element st_peak(Stack st);
+Element st_pop(Stack st);
 
 /**
  * 创建一个Stack，返回句柄
@@ -19,7 +18,11 @@
  *
  * 返回:	新创建的Stack的句柄(一个大于等于0的正整数)，创建失败返回-1
  */
-extern Stack st_create(ElementType type);
+Stack st_create(ElementType type)
+{
+	Stack ret = -1;
+	return ret;
+}
 
 /**
  * 销毁一个Stack，释放列表的空间，但不会销毁其中的元素
@@ -27,7 +30,11 @@ extern Stack st_create(ElementType type);
  *
  * 返回:	销毁完成返回0，销毁失败或无效Stack句柄返回-1
  */
-extern int st_destroy(Stack st);
+int st_destroy(Stack st)
+{
+	int ret = -1;
+	return ret;
+}
 
 /**
  * 判断一个Stack是否为空
@@ -35,7 +42,11 @@ extern int st_destroy(Stack st);
  *
  * 返回:	为空返回1，不为空返回0，无效句柄返回-1
  */
-extern int st_isempty(Stack st);
+int st_isempty(Stack st)
+{
+	int ret = 1;
+	return ret;
+}
 
 /**
  * 获取一个Stack中的元素数量
@@ -43,7 +54,11 @@ extern int st_isempty(Stack st);
  *
  * 返回:	元素数量，空栈或无效句柄返回0
  */
-extern size_t st_size(Stack st);
+size_t st_size(Stack st)
+{
+	size_t ret = 0;
+	return ret;
+}
 
 /**
  * 新元素压入堆栈
@@ -52,7 +67,11 @@ extern size_t st_size(Stack st);
  *
  * 返回:	压栈成功返回0，压栈失败或st无效时返回-1
  */
-extern int st_push(Stack st, Element ele);
+int st_push(Stack st, Element ele)
+{
+	int ret = -1;
+	return ret;
+}
 
 /**
  * 读取当前栈顶元素但不弹出
@@ -60,7 +79,11 @@ extern int st_push(Stack st, Element ele);
  * 
  * 返回:	当前栈顶元素，空栈或st无效时返回NULL
  */
-extern Element st_peak(Stack st);
+Element st_peak(Stack st)
+{
+	Element ret = NULL;
+	return ret;
+}
 
 /**
  * 弹出栈顶元素
@@ -68,6 +91,9 @@ extern Element st_peak(Stack st);
  *
  * 返回:	当前栈顶元素，空栈或st无效时返回NULL
  */
-extern Element st_pop(Stack st);
+Element st_pop(Stack st)
+{
+	Element ret = NULL;
+	return ret;
+}
 
-#endif

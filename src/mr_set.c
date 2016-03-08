@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <pthread.h>
-#include <stdio.h>
 
 #include "mr_containers.h"
 #include "mr_set.h"
