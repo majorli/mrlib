@@ -151,9 +151,12 @@ typedef int Map;
 typedef int Stack;
 typedef int Queue;
 typedef int PriorityQueue;
+typedef int HashTable;
+typedef int Sheet;
 typedef int Tree;
 typedef int BTree;
 typedef int Graph;
+typedef int Network;
 
 /**
  * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
