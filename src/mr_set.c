@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdio.h>
 
 #include "mr_containers.h"
 #include "mr_set.h"
@@ -82,6 +83,9 @@ static int __it_stack_empty(set_it_p it);				// 迭代用的空栈判断函数
 
 static set_it_p __iterator(set_p s, int asc);				// 生成一个迭代器
 static rbt_node_p __it_next(set_it_p it);				// 用Mirros算法中序迭代一个迭代器
+
+static void __set_clone(set_p dest, set_p src);				// 将集合src复制一份到dest中
+static void __rbt_clone(set_p dest, rbt_node_p src);			// 二叉树复制，采用先序遍历的顺序复制，插入新节点的开销最小
 
 /**
  * 创建一个Set，返回句柄
@@ -322,8 +326,8 @@ Element set_next(SetIterator *it)
 {
 	Element ret = NULL;
 	set_it_p iterator = (set_it_p)(*it);
-	set_p set = (set_p)container_get(iterator->set, Set_t);
-	if (set != NULL) {
+	set_p set = NULL;
+	if (iterator != NULL && (set = (set_p)container_get(iterator->set, Set_t)) != NULL) {
 		if (__MultiThreads__ == 1)
 			pthread_mutex_lock(&(set->mut));
 		rbt_node_p next = __it_next(iterator);
@@ -331,7 +335,7 @@ Element set_next(SetIterator *it)
 		if (__MultiThreads__ == 1)
 			pthread_mutex_unlock(&(set->mut));
 	}
-	if (ret == NULL) {
+	if (ret == NULL && iterator != NULL) {
 		free(iterator->stack);
 		free(iterator);
 		*it = NULL;
@@ -342,6 +346,7 @@ Element set_next(SetIterator *it)
 /**
  * 求两个集合的交集，如果两个集合的元素数据类型不一致则返回空集合
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  * s1,s2:	两个集合的句柄
  *
  * 返回:	s1和s2的交集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
@@ -349,12 +354,90 @@ Element set_next(SetIterator *it)
 Set set_intersection(Set s1, Set s2)
 {
 	Set ret = -1;
+	if (s1 != s2) {
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		set_p set2 = (set_p)container_get(s2, Set_t);
+		if (set1 && set2) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+			else {
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_init(&(set->mut), NULL);
+					pthread_mutex_lock(&(set->mut));
+					pthread_mutex_lock(&(set1->mut));
+					pthread_mutex_lock(&(set2->mut));
+				}
+				if (set1->type == set2->type && (set1->size * set2->size) > 0) {	// 两个集合数据类型一致，且两个集合都有数据
+					set_it_p it1 = __iterator(set1, __IT_ASC);
+					set_it_p it2 = __iterator(set2, __IT_ASC);
+					rbt_node_p n1 = __it_next(it1);
+					rbt_node_p n2 = __it_next(it2);
+					while (n1 && n2) {			// 只要有一个集合已经取完所有数据，那么交集就结束了
+						int cmp = set->cmpfunc(n1->element, n2->element);
+						if (cmp < 0) {			// 集合1中的当前元素比较小，取下一个，继续循环
+							n1 = __it_next(it1);
+						} else if (cmp > 0) {		// 集合2中的当前元素比较小，取下一个，继续循环
+							n2 = __it_next(it2);
+						} else {			// 两个集合的当前元素相等，添加到结果集中，两个集合都取下一个，继续循环
+							rbt_node_p root = __rbt_insert(n1->element, set->root, set->cmpfunc);
+							if (root) {
+								set->root = root;
+								set->size++;
+							}
+							n1 = __it_next(it1);
+							n2 = __it_next(it2);
+						}
+					}
+					free(it1->stack);
+					free(it1);
+					free(it2->stack);
+					free(it2);
+				}
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_unlock(&(set->mut));
+					pthread_mutex_unlock(&(set1->mut));
+					pthread_mutex_unlock(&(set2->mut));
+				}
+			}
+		}
+	} else {		// 自己交集自己，返回自己的clone
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		if (set1) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+			else {
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_init(&(set->mut), NULL);
+					pthread_mutex_lock(&(set->mut));
+					pthread_mutex_lock(&(set1->mut));
+				}
+				__set_clone(set, set1);
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_unlock(&(set->mut));
+					pthread_mutex_unlock(&(set1->mut));
+				}
+			}
+		}
+	}
 	return ret;
 }
 
 /**
  * 求两个集合的并集，如果两个集合的元素数据类型不一致则返回空集合
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  * s1,s2:	两个集合的句柄
  *
  * 返回:	s1和s2的并集的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
@@ -362,12 +445,86 @@ Set set_intersection(Set s1, Set s2)
 Set set_union(Set s1, Set s2)
 {
 	Set ret = -1;
+	if (s1 != s2) {
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		set_p set2 = (set_p)container_get(s2, Set_t);
+		if (set1 && set2) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+			else {
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_init(&(set->mut), NULL);
+					pthread_mutex_lock(&(set->mut));
+					pthread_mutex_lock(&(set1->mut));
+					pthread_mutex_lock(&(set2->mut));
+				}
+				if (set1->type == set2->type && (set1->size + set2->size) > 0) {	// 两个集合数据类型一致，且至少有一个集合有数据
+					set_it_p it = NULL;
+					if (set1->size > set2->size) {		// set1比较大，复制set1再逐个添加set2中的元素
+						__set_clone(set, set1);
+						it = (set2->root ? __iterator(set2, __IT_ASC) : NULL);
+					} else {				// 反之
+						__set_clone(set, set2);
+						it = (set1->root ? __iterator(set1, __IT_ASC) : NULL);
+					}
+					if (it) {				// 另一个集合中有元素，则添加另一个集合的所有元素
+						rbt_node_p node = NULL;
+						while ((node = __it_next(it))) {
+							rbt_node_p root = __rbt_insert(node->element, set->root, set->cmpfunc);
+							if (root) {
+								set->root = root;
+								set->size++;
+							}
+						}
+						free(it->stack);
+						free(it);
+					}
+				}
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_unlock(&(set->mut));
+					pthread_mutex_unlock(&(set1->mut));
+					pthread_mutex_unlock(&(set2->mut));
+				}
+			}
+		}
+	} else {		// 自己并集自己，返回自己的clone
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		if (set1) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+			else {
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_init(&(set->mut), NULL);
+					pthread_mutex_lock(&(set->mut));
+					pthread_mutex_lock(&(set1->mut));
+				}
+				__set_clone(set, set1);
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_unlock(&(set->mut));
+					pthread_mutex_unlock(&(set1->mut));
+				}
+			}
+		}
+	}
 	return ret;
 }
 
 /**
  * 求两个集合的减集，即s1-s2，从s1中删除所有存在于s2中的元素，如果两个集合的元素数据类型不一致则结果集与s1的元素相同
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
+ * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  * s1,s2:	两个集合的句柄
  *
  * 返回:	集合s1-s2的句柄，是一个新建的集合，如果s1和s2中有至少一个无效，则返回-1
@@ -375,6 +532,80 @@ Set set_union(Set s1, Set s2)
 Set set_minus(Set s1, Set s2)
 {
 	Set ret = -1;
+	if (s1 != s2) {
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		set_p set2 = (set_p)container_get(s2, Set_t);
+		if (set1 && set2) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+			else {
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_init(&(set->mut), NULL);
+					pthread_mutex_lock(&(set->mut));
+					pthread_mutex_lock(&(set1->mut));
+					pthread_mutex_lock(&(set2->mut));
+				}
+				if (set1->type == set2->type && set1->size > 0) {	// 两个集合数据类型一致，且被减集合有数据
+					set_it_p it1 = __iterator(set1, __IT_ASC);
+					set_it_p it2 = __iterator(set2, __IT_ASC);
+					rbt_node_p n1 = __it_next(it1);
+					rbt_node_p n2 = __it_next(it2);
+					rbt_node_p root = NULL;
+					while (n1 && n2) {			// set1结束则循环结束，set2结束则循环结束后把set1剩余的数据全部添加到结果集中
+						int cmp = set->cmpfunc(n1->element, n2->element);
+						if (cmp < 0) {			// 集合1中的当前元素比较小，复制并跳到下一个元素，继续循环
+							root = __rbt_insert(n1->element, set->root, set->cmpfunc);
+							if (root) {
+								set->root = root;
+								set->size++;
+							}
+							n1 = __it_next(it1);
+						} else if (cmp > 0) {		// 集合2中的当前元素比较小，取下一个，继续循环
+							n2 = __it_next(it2);
+						} else {			// 两个集合的当前元素相等，两个集合都取下一个，继续循环
+							n1 = __it_next(it1);
+							n2 = __it_next(it2);
+						}
+					}
+					while (n1) {				// 集合1中还有元素，全部复制到结果集中去
+						root = __rbt_insert(n1->element, set->root, set->cmpfunc);
+						if (root) {
+							set->root = root;
+							set->size++;
+						}
+						n1 = __it_next(it1);
+					}
+					free(it1->stack);
+					free(it1);
+					free(it2->stack);
+					free(it2);
+				}
+				if (__MultiThreads__ == 1) {
+					pthread_mutex_unlock(&(set->mut));
+					pthread_mutex_unlock(&(set1->mut));
+					pthread_mutex_unlock(&(set2->mut));
+				}
+			}
+		}
+	} else {			// 自己减自己，返回一个空集
+		set_p set1 = (set_p)container_get(s1, Set_t);
+		if (set1) {
+			set_p set = (set_p)malloc(sizeof(set_t));
+			set->type = set1->type;
+			set->root = NULL;
+			set->size = 0;
+			set->cmpfunc = set1->cmpfunc;
+			ret = container_retrieve(set, Set_t);
+			if (ret == -1)
+				free(set);
+		}
+	}
 	return ret;
 }
 
@@ -829,3 +1060,21 @@ static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt
 	return root;
 }
 
+static void __set_clone(set_p dest, set_p src)				// 将集合src复制一份到dest中
+{
+	__rbt_clone(dest, src->root);
+}
+
+static void __rbt_clone(set_p dest, rbt_node_p src)	// 二叉树复制，采用先序遍历的顺序复制，插入新节点的开销最小
+{
+	if (!src)
+		return;
+	rbt_node_p root = __rbt_insert(src->element, dest->root, dest->cmpfunc);
+	if (root) {
+		dest->root = root;
+		dest->size++;
+	}
+	__rbt_clone(dest, src->left);
+	__rbt_clone(dest, src->right);
+	return;
+}
