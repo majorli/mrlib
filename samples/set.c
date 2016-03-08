@@ -88,7 +88,7 @@ int main(void)
 	show_set(set);
 
 	printf("用remove()逐个删除所有元素：\n");
-	for (int i = 49; i >= 30; i--)
+	for (int i = 0; i < 50; i++)
 		set_remove(set, elements[i]);
 	show_set(set);
 

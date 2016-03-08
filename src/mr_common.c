@@ -49,6 +49,23 @@ Element double_inbox(double x);
 Element ldouble_inbox(long double x);
 
 /**
+ * 基础数据类型元素解包函数
+ */
+char char_outbox(Element ele);
+unsigned char uchar_outbox(Element ele);
+int int_outbox(Element ele);
+unsigned int uint_outbox(Element ele);
+short short_outbox(Element ele);
+unsigned short ushort_outbox(Element ele);
+long long_outbox(Element ele);
+unsigned long ulong_outbox(Element ele);
+long long llong_outbox(Element ele);
+unsigned long long ullong_outbox(Element ele);
+float float_outbox(Element ele);
+double double_outbox(Element ele);
+long double ldouble_outbox(Element ele);
+
+/**
  * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
  */
 unsigned int lg2(unsigned int n);
@@ -547,6 +564,72 @@ Element ldouble_inbox(long double x)
 	*ret = x;
 	return ret;
 }
+
+char char_outbox(Element ele)
+{
+	return ele ? *((char *)ele) : 0;
+}
+
+unsigned char uchar_outbox(Element ele)
+{
+	return ele ? *((unsigned char *)ele) : 0;
+}
+
+int int_outbox(Element ele)
+{
+	return ele ? *((int *)ele) : 0;
+}
+
+unsigned int uint_outbox(Element ele)
+{
+	return ele ? *((unsigned int *)ele) : 0;
+}
+
+short short_outbox(Element ele)
+{
+	return ele ? *((short *)ele) : 0;
+}
+
+unsigned short ushort_outbox(Element ele)
+{
+	return ele ? *((unsigned *)ele) : 0;
+}
+
+long long_outbox(Element ele)
+{
+	return ele ? *((long *)ele) : 0;
+}
+
+unsigned long ulong_outbox(Element ele)
+{
+	return ele ? *((unsigned long *)ele) : 0;
+}
+
+long long llong_outbox(Element ele)
+{
+	return ele ? *((long long *)ele) : 0;
+}
+
+unsigned long long ullong_outbox(Element ele)
+{
+	return ele ? *((unsigned long long *)ele) : 0;
+}
+
+float float_outbox(Element ele)
+{
+	return ele ? *((float *)ele) : 0.0;
+}
+
+double double_outbox(Element ele)
+{
+	return ele ? *((double *)ele) : 0.0;
+}
+
+long double ldouble_outbox(Element ele)
+{
+	return ele ? *((long double *)ele) : 0.0;
+}
+
 
 unsigned int lg2(unsigned int n)
 {

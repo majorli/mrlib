@@ -97,6 +97,23 @@ extern Element double_inbox(double x);
 extern Element ldouble_inbox(long double x);
 
 /**
+ * 基础数据类型元素解包函数
+ */
+extern char char_outbox(Element ele);
+extern unsigned char uchar_outbox(Element ele);
+extern int int_outbox(Element ele);
+extern unsigned int uint_outbox(Element ele);
+extern short short_outbox(Element ele);
+extern unsigned short ushort_outbox(Element ele);
+extern long long_outbox(Element ele);
+extern unsigned long ulong_outbox(Element ele);
+extern long long llong_outbox(Element ele);
+extern unsigned long long ullong_outbox(Element ele);
+extern float float_outbox(Element ele);
+extern double double_outbox(Element ele);
+extern long double ldouble_outbox(Element ele);
+
+/**
  * 元素比较函数的类型定义
  */
 typedef int (*CmpFunc)(const void *, const void *);

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "container.h"
+#include "mr_containers.h"
 #include "mr_stack.h"
 
 Stack st_create(ElementType type);
