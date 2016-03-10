@@ -69,7 +69,7 @@ typedef enum {
 typedef struct {
 	void *container;		// 容器指针
 	ContainerType type;		// 容器类型
-} Container, *Container_p;
+} Container_t, *Container;
 
 typedef char *string;			// 字符串类型
 typedef void *object;			// 对象类型
@@ -130,5 +130,7 @@ extern int obj_cmp(const Element e1, const Element e2);
  * 根据元素类型获取默认的比较函数
  */
 extern CmpFunc default_cmpfunc(ElementType type);
+
+#include "mr_error.h"
 
 #endif
