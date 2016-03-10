@@ -1,7 +1,7 @@
 /**
- * "mr_common.h"，通用工具函数、常量及宏函数
+ * "mr_common.h"，通用工具函数、常量、宏函数和类型定义
  *
- * Version 1.1.1, 李斌，2016/03/08
+ * Version 2.0.0-Dev, 李斌，2016/03/10
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -47,10 +47,42 @@
 #define EX(x, min, max) (((x) <= (min)) || ((x) >= (max)))
 
 /**
- * 是否需要提供线程安全，默认为1(True)
- * 提供线程安全将不可避免地降低一些性能，如果客户程序确认只运行于单线程条件下则可以通过设置__MultiThreads__为0(False)来关闭线程安全能力
+ * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
  */
-extern int __MultiThreads__;
+extern unsigned int lg2(unsigned int n);
+
+/**
+ * 容器类型的枚举
+ */
+typedef enum {
+	Set,
+	Pool,
+	HashTable,
+	Content,
+	Report,
+	Network
+} ContainerType;
+
+/**
+ * 容器结构
+ */
+typedef struct {
+	void *container;		// 容器指针
+	ContainerType type;		// 容器类型
+} Container, *Container_p;
+
+typedef char *string;			// 字符串类型
+typedef void *object;			// 对象类型
+
+/**
+ * 元素类型的枚举
+ */
+typedef enum {
+	Integer,
+	Real,
+	String,
+	Object
+} ElementType;
 
 /**
  * 容器元素的基本类型
@@ -58,126 +90,45 @@ extern int __MultiThreads__;
 typedef void *Element;
 
 /**
- * 容器元素具体类型枚举
+ * 基础数据类型数据的装箱函数，用于将基础类型的数据包装为容器的元素
+ * 装箱函数使用malloc()来分配一块内存，所以装箱后获得的元素不再使用后必须free，内存分配失败返回NULL
  */
-typedef enum {
-	Char,
-	UChar,
-	Short,
-	UShort,
-	Int,
-	UInt,
-	Long,
-	ULong,
-	LLong,
-	ULLong,
-	Float,
-	Double,
-	LDouble,
-	String,
-	Object
-} ElementType;
+extern Element integer_inbox(long long value);
+extern Element real_inbox(long double value);
 
 /**
- * 基础数据类型数据的装箱函数，用于将基础类型的临时变量、普通变量、字面量等没有固定内存分配的数据装箱成为一个具有固定地址的容器元素
- * 装箱函数使用malloc()来分配一块内存，所以装箱后获得的指针在元素不再使用后必须free()
+ * 基础数据类型元素解包函数，从元素中获取实际的值，元素为NULL时返回0
  */
-extern Element char_inbox(char ch);
-extern Element uchar_inbox(unsigned char ch);
-extern Element int_inbox(int i);
-extern Element uint_inbox(unsigned int i);
-extern Element short_inbox(short i);
-extern Element ushort_inbox(unsigned short i);
-extern Element long_inbox(long i);
-extern Element ulong_inbox(unsigned long i);
-extern Element llong_inbox(long long i);
-extern Element ullong_inbox(unsigned long long i);
-extern Element float_inbox(float x);
-extern Element double_inbox(double x);
-extern Element ldouble_inbox(long double x);
-
-/**
- * 基础数据类型元素解包函数
- */
-extern char char_outbox(Element ele);
-extern unsigned char uchar_outbox(Element ele);
-extern int int_outbox(Element ele);
-extern unsigned int uint_outbox(Element ele);
-extern short short_outbox(Element ele);
-extern unsigned short ushort_outbox(Element ele);
-extern long long_outbox(Element ele);
-extern unsigned long ulong_outbox(Element ele);
-extern long long llong_outbox(Element ele);
-extern unsigned long long ullong_outbox(Element ele);
-extern float float_outbox(Element ele);
-extern double double_outbox(Element ele);
-extern long double ldouble_outbox(Element ele);
+extern long long integer_outbox(Element element);
+extern long double real_outbox(Element element);
 
 /**
  * 元素比较函数的类型定义
  */
-typedef int (*CmpFunc)(const void *, const void *);
+typedef int (*CmpFunc)(const Element, const Element);
 
 /**
  * 容器清空时用于处理被清除的节点中元素的处理
  */
-typedef void (*onRemove)(void *);
+typedef void (*onRemove)(Element);
 
 /**
- * (unsigned) char,(unsigned) short,(unsigned) int,(unsigned) long,(unsigned) long long,float,double,long double,string的比较函数，传入数据的指针进行比较
- * NULL指针认为比非NULL指针小，两个NULL指针认为相等
- * d1,d2:	用于比较的数的指针
+ * 元素的默认比较函数，NULL指针认为比非NULL指针小，两个NULL指针认为相等
+ * d1,d2:	用于比较的元素
  *
- * 返回:	两数相等返回0，*d1>*d2返回一个正整数，*d1<*d2返回一个负整数
+ * 返回:	Integer: 比较实际的数值大小，返回-1, 0, 或1
+		Real: 比较实际的数值大小，返回-1, 0, 或1
+		String: 调用标准库函数`strcmp()`进行比较并返回其返回值
+		Object: 比较两个元素的地址，地址相同认为相等并返回0，否则认为不等，根据两者地址位置的先后返回-1或1
  */
-extern int charcmp(const void *d1, const void *d2);
-extern int ucharcmp(const void *d1, const void *d2);
-extern int shortcmp(const void *d1, const void *d2);
-extern int ushortcmp(const void *d1, const void *d2);
-extern int intcmp(const void *d1, const void *d2);
-extern int uintcmp(const void *d1, const void *d2);
-extern int longcmp(const void *d1, const void *d2);
-extern int ulongcmp(const void *d1, const void *d2);
-extern int llcmp(const void *d1, const void *d2);
-extern int ullcmp(const void *d1, const void *d2);
-extern int floatcmp(const void *d1, const void *d2);
-extern int doublecmp(const void *d1, const void *d2);
-extern int ldoublecmp(const void *d1, const void *d2);
-extern int stringcmp(const void *d1, const void *d2);
-
-/*
- * 在不知道d1,d2指针到底指向什么类型数据的情况下，将其视为通用的对象来进行比较，比较规则如下：
- * d1, d2指针值相同则认为两个对象相同，返回0
- * d1, d2有一个为NULL指针的，认为非NULL指针大于NULL指针，返回-1或1
- * d1, d2均不是NULL指针且不相同的，按指针值大小进行判断，返回-1或1
- */
-extern int objcmp(const void *d1, const void *d2);
+extern int integer_cmp(const Element e1, const Element e2);
+extern int real_cmp(const Element e1, const Element e2);
+extern int string_cmp(const Element e1, const Element e2);
+extern int obj_cmp(const Element e1, const Element e2);
 
 /**
  * 根据元素类型获取默认的比较函数
  */
 extern CmpFunc default_cmpfunc(ElementType type);
-
-/**
- * 容器类型定义，所有容器都采用一个整数(0或者正整数)作为句柄
- */
-typedef int ArrayList;
-typedef int LinkedList;
-typedef int Set;
-typedef int Map;
-typedef int Stack;
-typedef int Queue;
-typedef int PriorityQueue;
-typedef int HashTable;
-typedef int Sheet;
-typedef int Tree;
-typedef int BTree;
-typedef int Graph;
-typedef int Network;
-
-/**
- * 计算以2为底的对数，n >= 1，n等于0时返回0，其他数值的对数值向下取整
- */
-extern unsigned int lg2(unsigned int n);
 
 #endif
