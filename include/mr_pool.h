@@ -14,14 +14,11 @@
 #include "mr_common.h"
 
 /**
- * 创建一个容量为capacity个节点的池
+ * 创建一个容量为capacity个节点的池，capacity小于10时取下限10
  *
  * 参数:	capacity	池容量
  *
  * 返回:	创建成功返回一个封装了池的容器，创建失败返回NULL
- *
- * 错误:	1. 参数capacity == 0，错误码ERR_INVALID_PARAMETER
- *		2. 内存不足，错误码ERR_OUT_OF_MEMORY
  */
 extern Container pool_create(size_t capacity);
 
@@ -31,8 +28,6 @@ extern Container pool_create(size_t capacity);
  * 参数:	pool		待销毁的池容器
  *
  * 返回:	销毁成功返回0，销毁失败返回-1
- *
- * 错误:	容器无效或不是一个池，错误码ERR_INVALID_PARAMETER
  */
 extern int pool_destroy(Container pool);
 
@@ -66,47 +61,52 @@ extern double pool_ratio(Container pool);
 /**
  * 托管一个元素到池中
  *
- * 参数:	container	要托管到池中的元素
+ * 参数:	pool		池容器
+ *		element		要托管到池中的元素
  *
  * 返回:	托管成功返回一个非负整数的句柄，托管失败返回-1
- *
- * 错误:	1. 池容量不足，错误码ERR_CONTAINER_FULL
- *		2. 内存不足，错误码ERR_OUT_OF_MEMORY
  */
-extern int pool_retrieve(Element element);
+extern int pool_retrieve(Container pool, Element element);
 
 /**
  * 从池中释放一个元素
  *
- * 参数:	handler		要释放的元素的句柄
+ * 参数:	pool		池容器
+ * 		handler		要释放的元素的句柄
  *
  * 返回:	释放成功返回被释放的元素，释放失败返回NULL
- *
- * 错误:	1. 句柄无效，错误码ERR_INVALID_PARAMETER
  */
-extern Element pool_release(int handler);
+extern Element pool_release(Container pool, int handler);
 
 /**
  * 从池中获取一个元素
  *
- * 参数:	handler		要获取的容器的句柄
+ * 参数:	pool		池容器
+ * 		handler		要获取的容器的句柄
  * 
  * 返回:	获取成功返回句柄对应的元素，获取失败返回NULL
- *
- * 错误:	1. 句柄无效，错误码ERR_INVALID_PARAMETER
  */
-extern Element pool_get(int handler);
+extern Element pool_get(Container pool, int handler);
 
 /**
- * 扩展池的容量
+ * 扩展池的容量，扩展的容量为池创建时的初始容量
  *
- * 参数:	ext		要扩展的容量(ext个元素)，0表示扩展一个初始容量
+ * 参数:	pool		池容器
  *
  * 返回:	扩展成功返回0，扩展失败返回-1
- *
- * 错误:	1. 内存不足，错误码ERR_OUT_OF_MEMORY
  */
-extern int pool_expand(size_t ext);
+extern int pool_expand(Container pool);
+
+/**
+ * 缩小池的容量，缩小到当前最后一个非空节点后剩余10个空闲节点
+ * 只有当前容量 > 计算得出的缩小后容量 >= 初始容量的时候，缩小才会得到执行
+ * 这样是为了确保池确实得到了缩小，缩小后不会过于拥挤，且不会缩小到比初始容量更小
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	缩小成功返回0，缩小失败返回-1
+ */
+extern int pool_shrink(Container pool);
 
 /**
  * 清空池中所有元素，使用指定的方式对元素进行处置
@@ -115,9 +115,7 @@ extern int pool_expand(size_t ext);
  *		onremove	用于处置池中元素的函数指针，NULL表示不对元素进行后续处置
  *
  * 返回:	清空成功返回被清空的元素数量，清空失败返回-1
- *
- * 错误:	容器无效或不是一个池，错误码ERR_INVALID_PARAMETER
  */
-extern int pool_removeall(Container pool);
+extern int pool_removeall(Container pool, onRemove onremove);
 
 #endif

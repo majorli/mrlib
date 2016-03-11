@@ -131,6 +131,4 @@ extern int obj_cmp(const Element e1, const Element e2);
  */
 extern CmpFunc default_cmpfunc(ElementType type);
 
-#include "mr_error.h"
-
 #endif

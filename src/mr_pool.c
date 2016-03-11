@@ -3,8 +3,10 @@
 
 #include "mr_pool.h"
 
+#define IS_VALID_POOL(X) (X && X->container && X->type == Pool)
+
 typedef struct IdleNode {				// 空闲句柄链栈的节点结构
-	int handler;					// 空闲句柄
+	size_t handler;					// 空闲句柄
 	struct IdleNode *next;				// 链表指针
 } idle_node_t, *idle_node_p;
 
@@ -18,6 +20,8 @@ typedef struct {					// 池结构
 } pool_t, *pool_p;
 
 static Container __pool_create(size_t capacity);	// 创建一个池并封装成Container
+static int __pool_retrieve(pool_p pool, Element element);	// 托管一个新的元素
+static Element __pool_release(pool_p pool, int handler);	// 释放一个池节点
 
 /**
  * 创建一个容量为capacity个节点的池
@@ -25,17 +29,217 @@ static Container __pool_create(size_t capacity);	// 创建一个池并封装成C
  * 参数:	capacity	池容量
  *
  * 返回:	创建成功返回一个封装了池的容器，创建失败返回NULL
- *
- * 错误:	1. 参数capacity == 0，错误码ERR_INVALID_PARAMETER
- *		2. 内存不足，错误码ERR_OUT_OF_MEMORY
  */
 Container pool_create(size_t capacity)
 {
-	Container ret = NULL;
-	if (capacity == 0)
-		set_ecode(ERR_INVALID_PARAMETER);
-	else if ((ret = __pool_create(capacity)) == NULL)
-		set_ecode(ERR_OUT_OF_MEMORY);
+	return __pool_create(capacity > 9 ? capacity : 10);
+}
+
+/**
+ * 销毁池，但不销毁其中的元素
+ *
+ * 参数:	pool		待销毁的池容器
+ *
+ * 返回:	销毁成功返回0，销毁失败返回-1
+ */
+int pool_destroy(Container pool)
+{
+	int ret = -1;
+	if (IS_VALID_POOL(pool)) {
+		pool_p p = (pool_p)pool->container;
+		pthread_mutex_lock(&p->mut);
+		while (p->next_idle) {
+			idle_node_p next = p->next_idle->next;
+			free(p->next_idle);
+			p->next_idle = next;
+		}
+		p->capacity = 0;
+		free(p->elements);
+		pthread_mutex_unlock(&p->mut);
+		pthread_mutex_destroy(&p->mut);
+		free(p);
+		free(pool);
+		ret = 0;
+	}
+	return ret;
+}
+
+/**
+ * 获取池中元素数量
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	池中的元素数量，池为空或容器无效或容器不是池时返回0
+ */
+size_t pool_size(Container pool)
+{
+	return IS_VALID_POOL(pool) ? ((pool_p)pool->container)->size : 0;
+}
+
+/**
+ * 判断当前池是否为空
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	池中有元素返回0，池为空或容器无效或容器不是池时返回1
+ */
+int pool_isempty(Container pool)
+{
+	return IS_VALID_POOL(pool) ? ((pool_p)pool->container)->size == 0 : 1;
+}
+
+/**
+ * 获取池的使用率，使用百分率数值
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	池的使用率，即(元素数量/池容量)×100.0，容器无效或容器不是池时返回0.0
+ */
+double pool_ratio(Container pool)
+{
+	return IS_VALID_POOL(pool) ? (double)((pool_p)pool->container)->size / (double)((pool_p)pool->container)->capacity * 100.0 : 0.0;
+}
+
+/**
+ * 托管一个元素到池中
+ *
+ * 参数:	pool		池容器
+ *		element		要托管到池中的元素
+ *
+ * 返回:	托管成功返回一个非负整数的句柄，托管失败返回-1
+ */
+int pool_retrieve(Container pool, Element element)
+{
+	int handler = -1;
+	if (IS_VALID_POOL(pool) && element)
+		handler = __pool_retrieve((pool_p)pool->container, element);
+	return handler;
+}
+
+/**
+ * 从池中释放一个元素
+ *
+ * 参数:	pool		池容器
+ * 		handler		要释放的元素的句柄
+ *
+ * 返回:	释放成功返回被释放的元素，释放失败返回NULL
+ */
+Element pool_release(Container pool, int handler)
+{
+	Element element = NULL;
+	if (IS_VALID_POOL(pool) &&
+			handler >= 0 && handler < ((pool_p)pool->container)->capacity &&
+			((pool_p)pool->container)->elements[handler])
+		element = __pool_release((pool_p)pool->container, handler);
+	return element;
+}
+
+/**
+ * 从池中获取一个元素
+ *
+ * 参数:	pool		池容器
+ * 		handler		要获取的容器的句柄
+ * 
+ * 返回:	获取成功返回句柄对应的元素，获取失败返回NULL
+ */
+Element pool_get(Container pool, int handler)
+{
+	Element element = NULL;
+	if (IS_VALID_POOL(pool) && handler >= 0 && handler < ((pool_p)pool->container)->capacity)
+		element = ((pool_p)pool->container)->elements[handler];
+	return element;
+}
+
+/**
+ * 扩展池的容量，扩展的容量为池创建时的初始容量
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	扩展成功返回0，扩展失败返回-1
+ */
+int pool_expand(Container pool)
+{
+	int ret = -1;
+	if (IS_VALID_POOL(pool)) {
+		pool_p p = (pool_p)pool->container;
+		pthread_mutex_lock(&p->mut);
+		size_t nc = p->capacity + p->init_capa;
+		Element *tmp = (Element *)realloc(p->elements, nc * sizeof(Element));
+		if (tmp) {
+			p->elements = tmp;
+			for (size_t i = p->capacity; i < nc; i++)
+				p->elements[i] = NULL;
+			p->capacity = nc;
+			ret = 0;
+		}
+		pthread_mutex_unlock(&p->mut);
+	}
+	return ret;
+}
+
+/**
+ * 缩小池的容量，缩小到当前最后一个非空节点后剩余10个空闲节点
+ * 只有当前容量 > 计算得出的缩小后容量 >= 初始容量的时候，缩小才会得到执行
+ * 这样是为了确保池确实得到了缩小，缩小后不会过于拥挤，且不会缩小到比初始容量更小
+ *
+ * 参数:	pool		池容器
+ *
+ * 返回:	缩小成功返回0，缩小失败返回-1
+ */
+int pool_shrink(Container pool)
+{
+	int ret = -1;
+	if (IS_VALID_POOL(pool)) {
+		pool_p p = (pool_p)pool->container;
+		pthread_mutex_lock(&p->mut);
+		idle_node_p tail = p->next_idle;
+		while (tail->next)
+			tail = tail->next;
+		size_t nc = tail->handler + 10;
+		if (p->capacity > nc && nc >= p->init_capa) {
+			Element *tmp = (Element *)realloc(p->elements, nc * sizeof(Element));
+			if (tmp) {
+				p->elements = tmp;
+				p->capacity = nc;
+				ret = 0;
+			}
+		}
+		pthread_mutex_unlock(&p->mut);
+	}
+	return ret;
+}
+
+/**
+ * 清空池中所有元素，使用指定的方式对元素进行处置
+ *
+ * 参数:	pool		要清空的池
+ *		onremove	用于处置池中元素的函数指针，NULL表示不对元素进行后续处置
+ *
+ * 返回:	清空成功返回被清空的元素数量，清空失败返回-1
+ */
+int pool_removeall(Container pool, onRemove onremove)
+{
+	int ret = -1;
+	if (IS_VALID_POOL(pool)) {
+		pool_p p = (pool_p)pool->container;
+		pthread_mutex_lock(&p->mut);
+		for (size_t i = 0; i < p->capacity; i++) {
+			if (p->elements[i]) {
+				onremove(p->elements[i]);
+				p->elements[i] = NULL;
+			}
+		}
+		p->size = 0;
+		idle_node_p head;
+		while (p->next_idle->next) {
+			head = p->next_idle->next;
+			free(p->next_idle);
+			p->next_idle = head;
+		}
+		p->next_idle->handler = 0;
+		ret = 0;
+		pthread_mutex_unlock(&p->mut);
+	}
 	return ret;
 }
 
@@ -85,179 +289,77 @@ static Container __pool_create(size_t capacity)		// 创建一个池并封装成C
 }
 
 /**
- * 获取一个空闲池节点的算法
- * NEXT-IDLE(P)
- * 1	h = handler[P->next_idle]
- * 2	if next[P->next_idle] == NULL
- * 3		then handler[P->next_idle] := h + 1
- * 4		else do t := next[P->next_idle]
- * 5			free P->next_idle
- * 6			P->next_idle := t
+ * 托管一个新的元素到池中，返回句柄
+ * 如果池已满，返回-1
+ * 托管一个新元素的算法
+ * POOL-RETRIEVE(P, x)
+ * 1	if size[P] == capacity[P]
+ * 2		then ERR_CONTAINER_FULL
+ * 3		     return -1
+ * 4	h := handler[next_idle[P]]
+ * 5	if next[next_idle[P]] == NULL
+ * 6		then handler[next_idle[P]] := h + 1
+ * 7		else pop next_idle[P]
+ * 8	elements[P][h] := x
+ * 9	size[P]++
+ *10	return h
  */
-static int __pool_retrieve_next_idle(idle_node_p next_idle)
+static int __pool_retrieve(pool_p pool, Element element)	// 托管一个新的元素
 {
-	// TODO
-	int idle = -1;
-	return idle;
+	int h = -1;
+	pthread_mutex_lock(&pool->mut);
+	if (pool->size < pool->capacity) {
+		h = pool->next_idle->handler++;
+		if (pool->next_idle->next) {
+			idle_node_p head = pool->next_idle;
+			pool->next_idle = head->next;
+			free(head);
+		}
+		pool->elements[h] = element;
+		pool->size++;
+	}
+	pthread_mutex_unlock(&pool->mut);
+	return h;
 }
 
-// ======================= LEGACY PRIVATE FUNCTIONS ==================================================
 /**
- * 释放池空间，释放空隙句柄堆栈
- //
-static void pool_destroy(void)
+ * 释放一个池节点，返回其中的元素，调用前须确保池和句柄有效
+ * 释放池节点的算法描述
+ * POOL-RELEASE(P, h)
+ * 1	e := elements[P][h]
+ * 2	elements[P][h] := NULL
+ * 3	size[P]--
+ * 4	if size[P] == 0
+ * 5		then init next_idle[P]
+ * 6		else push h into next_idle[P]
+ * 7	return e
+ */
+static Element __pool_release(pool_p pool, int handler)		// 释放一个池节点
 {
-	free(containers_pool);
-	containers_pool = NULL;
-	containers_capacity = 0;
-	containers_elements = 0;
-	free(slots);
-	slots = NULL;
-	slots_capacity = 0;
-	slots_top = 0;
-	return;
-}
-
-**
- * 扩容容器池，扩容的容量为一个SECTION_SIZE
- //
-static int pool_expand(void)
-{
-	int ret = -1;
-	size_t nc = containers_capacity + SECTION_SIZE;
-	node_p *tmp = (node_p *)realloc(containers_pool, nc * sizeof(node_p));
-	if (tmp) {
-		containers_pool = tmp;
-		for (size_t i = containers_capacity; i < nc; i++)
-			containers_pool[i] = NULL;
-		containers_capacity = nc;
-		ret = 0;
-	}
-	return ret;
-}
-
-**
- * 弹出空隙句柄堆栈的栈顶句柄，如果堆栈为空则返回-1
- //
-static int slots_pop(void)
-{
-	return slots_top == 0 ? -1 : slots[--slots_top];
-}
-
-**
- * 获取空隙句柄堆栈的栈顶句柄，如果堆栈为空则返回-1
- //
-static int slots_peak(void)
-{
-	return slots_top == 0 ? -1 : slots[slots_top];
-}
-
-**
- * 压入一个空隙句柄到堆栈中，如果堆栈已满则以一个SECTION_SIZE为单位扩容堆栈
- * slot:	空隙句柄
- //
-static void slots_push(int slot)
-{
-	if (slots_top == slots_capacity) {	// 堆栈已满，先扩容堆栈
-		slots_capacity += SECTION_SIZE;
-		slots = (int *)realloc(slots, slots_capacity * sizeof(int));
-	}
-	slots[slots_top++] = slot;
-	return;
-}
-*/
-
-// ============ LEGACY PUBLIC FUNCTIONS ==========================================================
-/**
- * 在容器池中获取一个句柄并保存容器到池中。一般由各类容器的create函数调用，客户端无需直接调用本函数
- * container:	要保存到池中的容器
- * type:	容器的具体类型
- *
- * 返回:	容器获得的句柄，是一个正整数，操作失败返回-1
-//
-int container_retrieve(Container container, ContainerType type)
-{
-	if (is_concurrency()) {
-		if (!containers_pool)
-			pthread_mutex_init(&pool_mut, NULL);
-		pthread_mutex_lock(&pool_mut);
-	}
-	int ret = -1;
-	if (containers_pool || pool_init() == 0) {				// 如果池还没有初始化，就先初始化池，如果初始化失败则失败返回
-		if (((ret = slots_peak()) == -1) && (containers_capacity < containers_elements || pool_expand() == 0))
-			ret = containers_elements;
-		// 此时ret==-1的唯一可能是没有空隙而且容器池已经满而且扩展容器池失败
-		if (ret != -1)
-			if ((containers_pool[ret] = (node_p)malloc(sizeof(node_t)))) {
-				containers_pool[ret]->container = container;
-				containers_pool[ret]->type = type;
-				containers_elements++;
-				if (ret != containers_elements)
-					slots_pop();
-			} else {
-				ret = -1;
-			}
-	}
-	if (is_concurrency()) {
-		pthread_mutex_unlock(&pool_mut);
-	}
-	return ret;
-}
-
-**
- * 从容器池中释放一个容器。一般由各类容器的free函数调用，客户端无需直接调用本函数
- * handler:	要释放的容器的句柄
- * type:	容器的具体类型
- *
- * 返回:	被释放的容器，操作失败返回NULL
-//
-Container container_release(int handler, ContainerType type)
-{
-	if (is_concurrency()) {
-		pthread_mutex_lock(&pool_mut);
-	}
-	Container ret = NULL;
-	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL && containers_pool[handler]->type == type) {
-		ret = containers_pool[handler]->container;
-		free(containers_pool[handler]);
-		containers_pool[handler] = NULL;
-		if (handler < containers_elements + slots_top - 1) {		// 释放了一个中间节点，形成了一个空隙句柄
-			slots_push(handler);
+	pthread_mutex_lock(&pool->mut);
+	Element e = pool->elements[handler];
+	if (pool->size == 1) {
+		idle_node_p head;
+		while (pool->next_idle->next) {
+			head = pool->next_idle;
+			pool->next_idle = head->next;
+			free(head);
 		}
-		containers_elements--;
-		if (containers_elements == 0) {					// 全部容器都释放了，池空，销毁容器池
-			pool_destroy();
+		pool->next_idle->handler = 0;
+	} else {
+		idle_node_p idle = (idle_node_p)malloc(sizeof(idle_node_t));
+		if (idle) {
+			idle->handler = handler;
+			idle->next = pool->next_idle;
+			pool->next_idle = idle;
+		} else {
+			e = NULL;
 		}
 	}
-	if (is_concurrency()) {
-		pthread_mutex_unlock(&pool_mut);
-		if (containers_pool == NULL) {
-			pthread_mutex_destroy(&pool_mut);
-		}
+	if (e) {
+		pool->elements[handler] = NULL;
+		pool->size--;
 	}
-	return ret;
+	pthread_mutex_unlock(&pool->mut);
+	return e;
 }
-
-**
- * 根据句柄从容器池中获得实际的容器
- * handler:	要获取的容器的句柄
- * type:	容器的具体类型
- *
- * 返回:	获取的容器，无效的句柄返回NULL
- //
-Container container_get(int handler, ContainerType type)
-{
-	if (is_concurrency()) {
-		pthread_mutex_lock(&pool_mut);
-	}
-	Container ret = NULL;
-	if (containers_capacity > 0 && containers_elements > 0 && handler >= 0 && handler < containers_capacity && containers_pool[handler] != NULL && containers_pool[handler]->type == type) {
-		ret = containers_pool[handler]->container;
-	}
-	if (is_concurrency()) {
-		pthread_mutex_unlock(&pool_mut);
-	}
-	return ret;
-}
-*/
-
