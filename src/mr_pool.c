@@ -19,29 +19,15 @@ typedef struct {					// 池结构
 	pthread_mutex_t mut;				// 共享锁
 } pool_t, *pool_p;
 
-static Container __pool_create(size_t capacity);	// 创建一个池并封装成Container
+static Container __pool_create(size_t capacity);		// 创建一个池并封装成Container
 static int __pool_retrieve(pool_p pool, Element element);	// 托管一个新的元素
 static Element __pool_release(pool_p pool, int handler);	// 释放一个池节点
 
-/**
- * 创建一个容量为capacity个节点的池
- *
- * 参数:	capacity	池容量
- *
- * 返回:	创建成功返回一个封装了池的容器，创建失败返回NULL
- */
 Container pool_create(size_t capacity)
 {
 	return __pool_create(capacity > 9 ? capacity : 10);
 }
 
-/**
- * 销毁池，但不销毁其中的元素
- *
- * 参数:	pool		待销毁的池容器
- *
- * 返回:	销毁成功返回0，销毁失败返回-1
- */
 int pool_destroy(Container pool)
 {
 	int ret = -1;
@@ -64,50 +50,21 @@ int pool_destroy(Container pool)
 	return ret;
 }
 
-/**
- * 获取池中元素数量
- *
- * 参数:	pool		池容器
- *
- * 返回:	池中的元素数量，池为空或容器无效或容器不是池时返回0
- */
 size_t pool_size(Container pool)
 {
 	return IS_VALID_POOL(pool) ? ((pool_p)pool->container)->size : 0;
 }
 
-/**
- * 判断当前池是否为空
- *
- * 参数:	pool		池容器
- *
- * 返回:	池中有元素返回0，池为空或容器无效或容器不是池时返回1
- */
 int pool_isempty(Container pool)
 {
 	return IS_VALID_POOL(pool) ? ((pool_p)pool->container)->size == 0 : 1;
 }
 
-/**
- * 获取池的使用率，使用百分率数值
- *
- * 参数:	pool		池容器
- *
- * 返回:	池的使用率，即(元素数量/池容量)×100.0，容器无效或容器不是池时返回0.0
- */
 double pool_ratio(Container pool)
 {
 	return IS_VALID_POOL(pool) ? (double)((pool_p)pool->container)->size / (double)((pool_p)pool->container)->capacity * 100.0 : 0.0;
 }
 
-/**
- * 托管一个元素到池中
- *
- * 参数:	pool		池容器
- *		element		要托管到池中的元素
- *
- * 返回:	托管成功返回一个非负整数的句柄，托管失败返回-1
- */
 int pool_retrieve(Container pool, Element element)
 {
 	int handler = -1;
@@ -116,14 +73,6 @@ int pool_retrieve(Container pool, Element element)
 	return handler;
 }
 
-/**
- * 从池中释放一个元素
- *
- * 参数:	pool		池容器
- * 		handler		要释放的元素的句柄
- *
- * 返回:	释放成功返回被释放的元素，释放失败返回NULL
- */
 Element pool_release(Container pool, int handler)
 {
 	Element element = NULL;
@@ -134,14 +83,6 @@ Element pool_release(Container pool, int handler)
 	return element;
 }
 
-/**
- * 从池中获取一个元素
- *
- * 参数:	pool		池容器
- * 		handler		要获取的容器的句柄
- * 
- * 返回:	获取成功返回句柄对应的元素，获取失败返回NULL
- */
 Element pool_get(Container pool, int handler)
 {
 	Element element = NULL;
@@ -150,13 +91,6 @@ Element pool_get(Container pool, int handler)
 	return element;
 }
 
-/**
- * 扩展池的容量，扩展的容量为池创建时的初始容量
- *
- * 参数:	pool		池容器
- *
- * 返回:	扩展成功返回0，扩展失败返回-1
- */
 int pool_expand(Container pool)
 {
 	int ret = -1;
@@ -177,15 +111,6 @@ int pool_expand(Container pool)
 	return ret;
 }
 
-/**
- * 缩小池的容量，缩小到当前最后一个非空节点后剩余10个空闲节点
- * 只有当前容量 > 计算得出的缩小后容量 >= 初始容量的时候，缩小才会得到执行
- * 这样是为了确保池确实得到了缩小，缩小后不会过于拥挤，且不会缩小到比初始容量更小
- *
- * 参数:	pool		池容器
- *
- * 返回:	缩小成功返回0，缩小失败返回-1
- */
 int pool_shrink(Container pool)
 {
 	int ret = -1;
@@ -209,15 +134,7 @@ int pool_shrink(Container pool)
 	return ret;
 }
 
-/**
- * 清空池中所有元素，使用指定的方式对元素进行处置
- *
- * 参数:	pool		要清空的池
- *		onremove	用于处置池中元素的函数指针，NULL表示不对元素进行后续处置
- *
- * 返回:	清空成功返回被清空的元素数量，清空失败返回-1
- */
-int pool_removeall(Container pool, onRemove onremove)
+int pool_removeall(Container pool, OnRemove onremove)
 {
 	int ret = -1;
 	if (IS_VALID_POOL(pool)) {
@@ -247,7 +164,7 @@ int pool_removeall(Container pool, onRemove onremove)
  * 池创建完成后的数据结构初始状态
  * 1. 池空间(pool->elements)
  * +---+---+---+---+
- * | 0 | 1 |...|C-1|		// c = capacity
+ * | 0 | 1 |...|C-1|		// C = pool->capacity
  * +---+---+---+---+
  * |nil|nil|nil|nil|
  * +---+---+---+---+
@@ -256,7 +173,7 @@ int pool_removeall(Container pool, onRemove onremove)
  * next_idle --> | 0 | --> nil
  *               +---+
  */
-static Container __pool_create(size_t capacity)		// 创建一个池并封装成Container
+static Container __pool_create(size_t capacity)
 {
 	Container cont = NULL;
 	pool_p pool = NULL;
@@ -304,7 +221,7 @@ static Container __pool_create(size_t capacity)		// 创建一个池并封装成C
  * 9	size[P]++
  *10	return h
  */
-static int __pool_retrieve(pool_p pool, Element element)	// 托管一个新的元素
+static int __pool_retrieve(pool_p pool, Element element)
 {
 	int h = -1;
 	pthread_mutex_lock(&pool->mut);
@@ -334,7 +251,7 @@ static int __pool_retrieve(pool_p pool, Element element)	// 托管一个新的�
  * 6		else push h into next_idle[P]
  * 7	return e
  */
-static Element __pool_release(pool_p pool, int handler)		// 释放一个池节点
+static Element __pool_release(pool_p pool, int handler)
 {
 	pthread_mutex_lock(&pool->mut);
 	Element e = pool->elements[handler];

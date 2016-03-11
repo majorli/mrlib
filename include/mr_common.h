@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用工具函数、常量、宏函数和类型定义
  *
- * Version 2.0.0-Dev, 李斌，2016/03/10
+ * Version 2.0.0, 李斌，2016/03/11
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -110,16 +110,19 @@ typedef int (*CmpFunc)(const Element, const Element);
 /**
  * 容器清空时用于处理被清除的节点中元素的处理
  */
-typedef void (*onRemove)(Element);
+typedef void (*OnRemove)(Element);
 
 /**
  * 元素的默认比较函数，NULL指针认为比非NULL指针小，两个NULL指针认为相等
- * d1,d2:	用于比较的元素
  *
- * 返回:	Integer: 比较实际的数值大小，返回-1, 0, 或1
-		Real: 比较实际的数值大小，返回-1, 0, 或1
-		String: 调用标准库函数`strcmp()`进行比较并返回其返回值
-		Object: 比较两个元素的地址，地址相同认为相等并返回0，否则认为不等，根据两者地址位置的先后返回-1或1
+ * d1,d2
+ *	用于比较的元素
+ *
+ * return
+ *	Integer: 比较实际的数值大小，返回-1, 0, 或1
+ *	Real: 比较实际的数值大小，返回-1, 0, 或1
+ *	String: 调用标准库函数strcmp()进行比较并返回其返回值
+ *	Object: 比较两个元素的地址，地址相同认为相等并返回0，否则认为不等，根据两者地址位置的先后返回-1或1
  */
 extern int integer_cmp(const Element e1, const Element e2);
 extern int real_cmp(const Element e1, const Element e2);
