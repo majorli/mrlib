@@ -25,7 +25,7 @@ typedef void *SetIterator;
  * type
  *	元素的类型
  * cmpfunc
- *	元素比较函数，传入NULL表示采用mr_common.h中定义的与type对应的默认比较函数
+ *	元素比较函数，传入NULL表示采用与type对应的默认比较函数
  *
  * return	新创建的集合，创建失败返回NULL
  */

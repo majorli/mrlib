@@ -192,7 +192,7 @@ static Container __pool_create(size_t capacity)
 		next_idle->handler = 0;
 		next_idle->next = NULL;
 		pool->next_idle = next_idle;
-		pthread_mutex_init(&(pool->mut), NULL);
+		pthread_mutex_init(&pool->mut, NULL);
 		cont->container = pool;
 		cont->type = Pool;
 	} else {

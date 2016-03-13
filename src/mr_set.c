@@ -35,6 +35,7 @@ typedef struct {
 	rbt_node_p root;		// 根节点
 	size_t size;			// 节点数量
 	CmpFunc cmpfunc;		// 元素比较函数
+	unsigned int changes		// 集合内容发生变更的次数
 	pthread_mutex_t mut;		// 共享锁
 } set_t, *set_p;
 
@@ -49,7 +50,7 @@ typedef struct {
 } set_it_t, *set_it_p;
 
 static rbt_node_p __rbt_new_node(Element ele);					// 创建一个新节点
-static void __rbt_removeall(rbt_node_p root, onRemove onremove);		// 后序遍历删除所有节点
+static void __rbt_removeall(rbt_node_p root, OnRemove onremove);		// 后序遍历删除所有节点
 
 static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
 static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc);				// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL
@@ -73,64 +74,42 @@ static void __set_clone(set_p dest, set_p src);				// 将集合src复制一份�
 static void __rbt_clone(set_p dest, rbt_node_p src);			// 二叉树复制，采用先序遍历的顺序复制，插入新节点的开销最小
 
 Container set_create(ElementType type, CmpFunc cmpfunc) {
-	// TODO
-	return NULL;
-}
-
-/**  ------------------------------------- legacy public functions -----------------------------------------
- * 创建一个Set，返回句柄
- * type:	元素的类型
- * cmpfunc:	元素比较函数，传入NULL表示采用mr_common.h中定义的与type对应的默认比较函数
- *
- * 返回:	新创建的Set的句柄(一个大于等于0的正整数)，创建失败返回-1
- *
-Set set_create(ElementType type, CmpFunc cmpfunc)
-{
-	Set ret = -1;
-	set_p set = (set_p)malloc(sizeof(set_t));
-	set->type = type;
-	set->root = NULL;
-	set->size = 0;
-	if (cmpfunc == NULL)
-		set->cmpfunc = default_cmpfunc(type);
-	else
-		set->cmpfunc = cmpfunc;
-	ret = container_retrieve(set, Set_t);
-	if (ret == -1) {
-		free(set);
+	Container cont = NULL;
+	set_p set = NULL;
+	if ((set = (set_p)malloc(sizeof(set_t))) && cont = (Container)malloc(sizeof(Container_t))) {
+		set->type = type;
+		set->root = NULL;
+		set->size = 0;
+		set->cmpfunc = cmpfunc ? cmpfunc : default_cmpfunc(type);
+		set->changes = 0;
+		pthread_mutex_init(&set->mut, NULL);
+		cont->container = set;
+		cont->type = Set;
 	} else {
-		if (__MultiThreads__ == 1) {
-			pthread_mutex_init(&(set->mut), NULL);
-		}
+		free(set);
+		free(cont);
+		cont = NULL;
 	}
-	return ret;
+	return cont;
 }
 
-**
- * 销毁一个Set，释放列表的空间，但不会销毁其中的元素
- * s:		Set句柄
- *
- * 返回:	销毁完成返回0，销毁失败或无效Set句柄返回-1
- *
-int set_destroy(Set s)
+int set_destroy(Container set)
 {
 	int ret = -1;
-	set_p set = (set_p)container_release(s, Set_t);
-	if (set != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		__rbt_removeall(set->root, NULL);		// 删除所有节点，用后序遍历逐个释放每一个节点，但不释放其中的元素
-		if (__MultiThreads__ == 1) {
-			pthread_mutex_unlock(&(set->mut));
-			pthread_mutex_destroy(&(set->mut));
-		}
+	if (IS_VALID_SET(set)) {
+		set_p s = (set_p)set->container;
+		pthread_mutex_lock(&s->mut);
+		__rbt_removeall(s->root, NULL);
+		pthread_mutex_unlock(&s->mut);
+		pthread_mutex_destroy(&s->mut);
+		free(s);
 		free(set);
 		ret = 0;
 	}
 	return ret;
 }
 
-**
+/**  ------------------------------------- legacy public functions -----------------------------------------
  * 判断一个Set是否为空
  * s:		Set句柄
  *
@@ -580,8 +559,7 @@ Set set_minus(Set s1, Set s2)
 }
 */
 
-/*       ------------------------ legacy static functions --------------------------------------------
-static void __rbt_removeall(rbt_node_p root, onRemove onremove)		// 后序遍历删除所有节点
+static void __rbt_removeall(rbt_node_p root, OnRemove onremove)		// 后序遍历删除所有节点
 {
 	if (root != NULL) {
 		__rbt_removeall(root->left, onremove);
@@ -592,6 +570,7 @@ static void __rbt_removeall(rbt_node_p root, onRemove onremove)		// 后序遍历
 	}
 }
 
+/*       ------------------------ legacy static functions --------------------------------------------
 static void __it_push(set_it_p it, rbt_node_p node)			// 迭代用的压栈函数
 {
 	*(it->top++) = node;
