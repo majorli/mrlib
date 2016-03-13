@@ -56,6 +56,8 @@ extern unsigned int lg2(unsigned int n);
  */
 typedef enum {
 	Set,
+	List,
+	PriorityQueue,
 	Pool,
 	HashTable,
 	Content,
