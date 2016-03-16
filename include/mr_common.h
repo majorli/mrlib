@@ -103,4 +103,17 @@ typedef void *Element;
  */
 typedef int (*CmpFunc)(const Element, const Element);
 
+/**
+ * 迭代器
+ */
+typedef struct Iterator_t *Iterator;
+
+/**
+ * 迭代器函数
+ */
+extern Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *) void (*destroy)(void *));
+extern Element it_next(Iterator it);
+extern void it_reset(Iterator it);
+extern void it_destroy(Iterator it);
+
 #endif

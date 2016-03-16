@@ -2,6 +2,7 @@
 #include <pthread.h>
 
 #include "mr_set.h"
+#include "private_element.c"
 
 #define IS_VALID_SET(X) (X && X->container && X->type == Set)
 
@@ -20,7 +21,7 @@ typedef enum {
  * 集合节点结构，即红黑树的节点结构
  */
 typedef struct RBT_Node {
-	Element element;		// 元素
+	element_p element;		// 元素
 	struct RBT_Node *left;		// 左子树根节点
 	struct RBT_Node *right;		// 右子树根节点
 	struct RBT_Node *parent;	// 父节点
@@ -43,25 +44,27 @@ typedef struct {
  * 集合迭代器
  */
 typedef struct {
-	Set set;			// 迭代的集合，用于加访问锁
+	set_p set;			// 迭代的集合，用于加访问锁
 	int asc;			// 迭代方向，1=递增顺序，0=递减逆序
 	rbt_node_p *stack;		// 迭代用的堆栈
 	rbt_node_p *top;		// 栈顶指针
+	unsigned int changes;		// 迭代器创建时的集合变更次数，用于fast-fail
 } set_it_t, *set_it_p;
 
-static rbt_node_p __rbt_new_node(Element ele);					// 创建一个新节点
-static void __rbt_removeall(rbt_node_p root, OnRemove onremove);		// 后序遍历删除所有节点
+static rbt_node_p __rbt_new_node(element_p element);				// 创建一个新节点
+static void __rbt_destroy_node(rbt_node_p node);				// 销毁一个节点及其中的元素
+static void __rbt_removeall(rbt_node_p root);					// 后序遍历删除所有节点
 
-static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
-static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc);				// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL
+static rbt_node_p __rbt_search_aux(element_p ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save);	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
+static rbt_node_p __rbt_search(element_p ele, rbt_node_p root, CmpFunc cmpfunc);			// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL
 
 static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root);		// 以node节点为轴左旋，返回旋转后的根节点
 static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root);		// 以node节点为轴右旋，返回旋转后的根节点
 
-static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc);	// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
-static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root);		// 从根为root的红黑树中删除一个节点，返回删除后的根节点
-static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root);	// 红黑树插入节点后重新平衡
-static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root);		// 红黑树删除节点后重新平衡
+static rbt_node_p __rbt_insert(element_p ele, rbt_node_p root, CmpFunc cmpfunc);		// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
+static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root);			// 红黑树插入节点后重新平衡
+static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root);				// 从根为root的红黑树中删除一个节点，返回删除后的根节点
+static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root);	// 红黑树删除节点后重新平衡
 
 static void __it_push(set_it_p it, rbt_node_p node);			// 迭代用的压栈函数
 static rbt_node_p __it_pop(set_it_p it);				// 迭代用的弹栈函数
@@ -99,7 +102,7 @@ int set_destroy(Container set)
 	if (IS_VALID_SET(set)) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
-		__rbt_removeall(s->root, NULL);
+		__rbt_removeall(s->root);
 		pthread_mutex_unlock(&s->mut);
 		pthread_mutex_destroy(&s->mut);
 		free(s);
@@ -109,132 +112,88 @@ int set_destroy(Container set)
 	return ret;
 }
 
-/**  ------------------------------------- legacy public functions -----------------------------------------
- * 判断一个Set是否为空
- * s:		Set句柄
- *
- * 返回:	为空返回1，不为空返回0，无效句柄返回-1
- *
-int set_isempty(Set s)
+int set_isempty(Container set)
 {
-	int ret = 1;
-	set_p set = (set_p)container_get(s, Set_t);
-	if (set != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		ret = (set->root == NULL);
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
+	return IS_VALID_SET(set) ? ((set_p)set->container)->root == NULL : 1;
+}
+
+size_t set_size(Container set)
+{
+	return IS_VALID_SET(set) ? ((set_p)set->container)->size : 0;
+}
+
+int set_contains(Container set, Element element, ElementType type, size_t len)
+{
+	int ret = 0;
+	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
+		element_t e;
+		e.value = element;
+		e.type = type;
+		e.len = len;
+		set_p s = (set_p)set->container;
+		pthread_mutex_lock(&s->mut);
+		rbt_node_p result = __rbt_search(&e, s->root, s->cmpfunc);
+		ret = result ? 1 : 0;
+		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
 }
 
-**
- * 获取一个Set中的元素数量
- * s:		Set句柄
- *
- * 返回:	元素数量，空集合或无效句柄返回0
- *
-size_t set_size(Set s)
-{
-	size_t ret = 0;
-	set_p set = (set_p)container_get(s, Set_t);
-	if (set != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		ret = set->size;
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
-	}
-	return ret;
-}
-
- * 在集合中搜索一个元素
- * s:		Set句柄
- * ele:		要搜索的元素
- *
- * 返回:	搜索到集合中存在与ele相同的元素时返回集合中的元素，搜索不到或搜索出错返回NULL
-Element set_search(Set s, Element ele)
-{
-	Element ret = NULL;
-	set_p set = (set_p)container_get(s, Set_t);
-	if (ele != NULL && set != NULL && set->root != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		rbt_node_p result = __rbt_search(ele, set->root, set->cmpfunc);
-		ret = (result == NULL ? NULL : result->element);
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
-	}
-	return ret;
-}
-
- * 添加一个元素，重复元素将不予添加
- * s:		Set句柄
- * ele:		待添加的元素
- *
- * 返回:	添加成功返回0，添加失败或元素重复返回-1
-int set_add(Set s, Element ele)
+int set_add(Container set, Element element, ElementType type, size_t len)
 {
 	int ret = -1;
-	set_p set = (set_p)container_get(s, Set_t);
-	if (ele != NULL && set != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		rbt_node_p r = __rbt_insert(ele, set->root, set->cmpfunc);
-		if (r != NULL) {		// 插入时如果元素重复则返回NULL，否则返回插入后的红黑树的根节点，这是因为插入操作可能改变树的根节点
-			set->root = r;
-			set->size++;
+	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
+		set_p s = (set_p)set->container;
+		pthread_mutex_lock(&s->mut);
+		rbt_node_p r = __rbt_insert(__element_create(element, type, len), s->root, s->cmpfunc);
+		if (r) {
+			// 插入时如果元素重复则返回NULL，否则返回插入后的红黑树的新根节点
+			s->root = r;
+			s->size++;
+			s->changes++;
 			ret = 0;
 		}
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
+		pthread_mutex_unlock(&set->mut);
 	}
 	return ret;
 }
 
- * 删除一个元素，根据参数ele查找集合中与之相同的元素，删除该节点，返回集合中的元素
- * s:		Set句柄
- * ele:		待删除的元素
- *
- * 返回:	删除成功返回集合中的元素，删除失败或未找到返回NULL
-Element set_remove(Set s, Element ele)
+Element set_remove(Container set, Element element, ElementType type, size_t len)
 {
 	Element ret = NULL;
-	set_p set = (set_p)container_get(s, Set_t);
-	if (ele != NULL && set != NULL && set->root != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		rbt_node_p node = __rbt_search(ele, set->root, set->cmpfunc);
+	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
+		set_p s = (set_p)set->container;
+		pthread_mutex_lock(&s->mut);
+		element_t e;
+		e.value = element;
+		e.type = type;
+		e.len = len;
+		rbt_node_p node = __rbt_search(e, s->root, s->cmpfunc);
 		if (node != NULL) {		// 找到要删除的元素
-			ret = node->element;
-			set->root = __rbt_delete(node, set->root);
-			set->size--;
+			ret = __element_clone_value(node->element);
+			s->root = __rbt_delete(node, s->root);	// 删除节点会销毁其中的元素，因此先复制元素
+			s->size--;
+			s->changes++;
 		}
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
+		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
 }
 
- * 删除Set中所有的元素，被清除的元素用onremove函数进行后续处理
- * s:		Set句柄
- * onremove:	元素后续处理函数，NULL表示不做任何处理，典型的可以传入标准库函数free
- *
-void set_removeall(Set s, onRemove onremove)
+void set_removeall(Container set)
 {
-	set_p set = (set_p)container_get(s, Set_t);
-	if (set != NULL) {
-		if (__MultiThreads__ == 1)
-			pthread_mutex_lock(&(set->mut));
-		__rbt_removeall(set->root, onremove);	// 删除所有节点，用后序遍历逐个释放每一个节点，用onremove参数进行元素的后续处理 
-		set->size = 0;
-		set->root = NULL;
-		if (__MultiThreads__ == 1)
-			pthread_mutex_unlock(&(set->mut));
+	if (IS_VALID_SET(set)) {
+		set_p s = (set_p)set->container;
+		pthread_mutex_lock(&s->mut);
+		__rbt_removeall(s->root);
+		s->size = 0;
+		s->root = NULL;
+		s->changes++;
+		pthread_mutex_unlock(&s->mut);
 	}
 }
 
+/**  ------------------------------------- legacy public functions -----------------------------------------
  * 获取一个集合的递增顺序迭代器
  * s:		Set句柄
  * 
@@ -559,65 +518,43 @@ Set set_minus(Set s1, Set s2)
 }
 */
 
-static void __rbt_removeall(rbt_node_p root, OnRemove onremove)		// 后序遍历删除所有节点
+/**
+ * 创建一个新的节点
+ */
+static rbt_node_p __rbt_new_node(element_p element)
 {
-	if (root != NULL) {
-		__rbt_removeall(root->left, onremove);
-		__rbt_removeall(root->right, onremove);
-		if (onremove != NULL)
-			onremove(root->element);
-		free(root);
+	rbt_node_p nnode = (rbt_node_p)malloc(sizeof(rbt_node_t));
+	nnode->element = ele;
+	nnode->left = NULL;
+	nnode->right = NULL;
+	nnode->parent = NULL;
+	nnode->color = Red;
+	return nnode;
+}
+
+/**
+ * 销毁一个节点及其中的元素
+ */
+static void __rbt_destroy_node(rbt_node_p node)
+{
+	__element_destroy(node->element);
+	free(root);
+}
+
+/**
+ * 销毁从root开始的所有节点及其中的元素
+ */
+static void __rbt_removeall(rbt_node_p root)
+{
+	if (root) {
+		__rbt_removeall(root->left);
+		__rbt_removeall(root->right);
+		__rbt_destroy_node(root);
 	}
 }
 
-/*       ------------------------ legacy static functions --------------------------------------------
-static void __it_push(set_it_p it, rbt_node_p node)			// 迭代用的压栈函数
-{
-	*(it->top++) = node;
-}
-
-static rbt_node_p __it_pop(set_it_p it)					// 迭代用的弹栈函数
-{
-	return *(--it->top);
-}
-
-static int __it_stack_empty(set_it_p it)				// 迭代用的空栈判断函数
-{
-	return it->stack == it->top;
-}
-
-static set_it_p __iterator(set_p set, int asc)				// 生成一个迭代器
-{
-	set_it_p ret = (set_it_p)malloc(sizeof(set_it_t));
-	ret->asc = asc;
-	unsigned int len = lg2(set->size + 1);
-	len = len << 1;			// 红黑树最大树高度小于2*lg2(size+1)
-	ret->stack = (rbt_node_p *)malloc(len  * sizeof(rbt_node_p));
-	ret->top = ret->stack;
-	rbt_node_p current = set->root;
-	while (current != NULL) {
-		__it_push(ret, current);
-		current = ret->asc ? current->left : current->right;
-	}
-	return ret;
-}
-
-static rbt_node_p __it_next(set_it_p it) {					// 中序迭代一个迭代器
-	rbt_node_p ret = NULL;
-	if (!__it_stack_empty(it)) {
-		ret = __it_pop(it);
-		if (it->asc ? ret->right != NULL : ret->left != NULL) {
-			rbt_node_p current = it->asc ? ret->right : ret->left;
-			while (current != NULL) {
-				__it_push(it, current);
-				current = it->asc ? current->left : current->right;
-			}
-		}
-	}
-	return ret;
-}
-
-**
+/**
+ * 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
  * 算法描述：
  * ITERATIVE-TREE-SEARCH(x, k)
  * 1	while x != NIL and k != key[x]
@@ -625,8 +562,8 @@ static rbt_node_p __it_next(set_it_p it) {					// 中序迭代一个迭代器
  * 3			then x := left[x]
  * 4			else x := right[x]
  * 5	return x
- *
-static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save)	// 从root开始搜索指定元素所在节点的辅助函数，如果指定元素没有找到，可以通过save保存插入点
+ */
+static rbt_node_p __rbt_search_aux(element_p ele, rbt_node_p root, CmpFunc cmpfunc, rbt_node_p *save)
 {
 	rbt_node_p ret = root, parent = NULL;
 	int cmp;
@@ -642,12 +579,16 @@ static rbt_node_p __rbt_search_aux(Element ele, rbt_node_p root, CmpFunc cmpfunc
 	return ret;
 }
 
-static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc)		// 从root开始查找元素与ele相等的节点并返回，找不到返回NULL，调用__rbt_search_aux()实现
+/**
+ * 从root开始查找元素与ele相等的节点并返回，找不到返回NULL，调用__rbt_search_aux()实现
+ */
+static rbt_node_p __rbt_search(element_p ele, rbt_node_p root, CmpFunc cmpfunc)
 {
 	return __rbt_search_aux(ele, root, cmpfunc, NULL);
 }
 
-**
+/**
+ * 以node节点为轴左旋，返回旋转后的根节点
  * 算法描述：
  *-----------------------------------------------------------
  *   node             rnode
@@ -669,8 +610,8 @@ static rbt_node_p __rbt_search(Element ele, rbt_node_p root, CmpFunc cmpfunc)		/
  *10			else right[p[x]] := y
  *11	left[y] := x;				// Put x on y's left
  *12	p[x] := y;
- *
-static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以node节点为轴左旋，返回旋转后的根节点
+ */
+static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)
 {
 	rbt_node_p rnode = node->right;			// 1
 	if ((node->right = rnode->left))		// 2,3
@@ -687,7 +628,8 @@ static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以nod
 	return root;
 }
 
-**
+/**
+ * 以node节点为轴右旋，返回旋转后的根节点
  * 算法描述
  *----------------------------------------------------------
  *     node           lnode 
@@ -697,8 +639,8 @@ static rbt_node_p __rbt_rotate_left(rbt_node_p node, rbt_node_p root)		// 以nod
  *  a   b               b   y
  *----------------------------------------------------------
  * 算法与左旋对称，即对换left和right分支即可，不再描述伪代码
- *
-static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)		// 以node节点为轴右旋，返回旋转后的根节点
+ */
+static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)
 {
 	rbt_node_p lnode = node->left;
 	if ((node->left = lnode->right))
@@ -715,18 +657,7 @@ static rbt_node_p __rbt_rotate_right(rbt_node_p node, rbt_node_p root)		// 以no
 	return root;
 }
 
-static rbt_node_p __rbt_new_node(Element ele)					// 创建一个新节点
-{
-	rbt_node_p nnode = (rbt_node_p)malloc(sizeof(rbt_node_t));
-	nnode->element = ele;
-	nnode->left = NULL;
-	nnode->right = NULL;
-	nnode->parent = NULL;
-	nnode->color = Red;
-	return nnode;
-}
-
-**
+/**
  * 红黑树插入新节点算法描述：
  * RB-INSERT(T, z)
  * 1	y := nil[T]
@@ -748,8 +679,8 @@ static rbt_node_p __rbt_new_node(Element ele)					// 创建一个新节点
  *17	RB-INSERT-FIXUP(T, z)
  *-------------------------------------------------------
  * 如果插入完成返回根节点，因为插入元素可能导致根节点发生变化；如果已经有相等的元素存在则返回NULL，表示未进行插入操作
- *
-static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc)		// 向根为root的红黑树中插入一个元素，如果元素存在则不做任何操作，返回插入完成后的根节点
+ */
+static rbt_node_p __rbt_insert(element_p ele, rbt_node_p root, CmpFunc cmpfunc)
 {
 	rbt_node_p parent = NULL, node;
 	if ((node = __rbt_search_aux(ele, root, cmpfunc, &parent)))	// 寻找插入点，如果相等的元素已经存在则返回原节点，否则返回NULL并在parent中存放插入点
@@ -767,80 +698,7 @@ static rbt_node_p __rbt_insert(Element ele, rbt_node_p root, CmpFunc cmpfunc)		/
 	return __rbt_insert_rebalance(node, root);
 }
 
-**
- * 红黑树删除节点的算法描述：
- * RB-DELETE(T, z)
- * 1	if left[z] == nil[T] or right[z] == nil[T]		// 找到真正要删除的节点y
- * 2		then y := z
- * 3		else y := TREE-SUCCESSOR(z)			// 求最小后继，就是中序遍历的后继节点
- * 4	if left[y] != nil[T]
- * 5		then x := left[y]				// y只有一棵子树
- * 6		else x := right[y]
- * 7	p[x] := p[y]						// 红黑树的算法描述中没有NULL，只有哨兵节点nil[T]，所以在算法描述中不判断x是否为NULL
- * 8	if p[y] == nil[T]
- * 9		then root[T] := x
- *10		else if y == left[p[y]]
- *11			then left[p[y]] := x
- *12			else right[p[y]] := x
- *13	if y != z
- *14		then key[z] := key[y]
- *15		     copy y's satellite data into z
- *16	if color[y] == BLACK
- *17		then RB-DELETE-FIXUP(T, x)
- *18	return y
- *--------------------------------------------------------------
- * 寻找中序后继节点的算法描述：
- * TREE-SUCCESSOR(x)
- * 1	if right[x] != nil[T]
- * 2		then return TREE-MINIMUN(right[x])
- * 3	y := p[x]
- * 4	while y != nil[T] and x == right[y]
- * 5		do x := y
- * 6		   y := p[y]
- * 7	return y
- *--------------------------------------------------------------
- * 寻找树中最小节点的算法描述：
- * TREE-MINIMUN(x)
- * 1	while left[x] != nil[T]
- * 2		do x := left[x]
- * 3	return x
- *--------------------------------------------------------------
- * 说明：由于删除节点时仅在符合条件left[z] != nil[T] and right[z] != nil[T]时才去z的中序后继作为替身，所以可以明确这里的TREE-SUCCESSOR算法可以简化为TREE-MINIMUN(right[z])
- *
-static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root)	// 从根为root的红黑树中删除一个节点，返回删除后的根节点，注意如果删除了最后一个节点（一定是根节点）那么要返回NULL
-{
-	rbt_node_p remove = node, dnode, parent;
-	RBT_Color color;
-
-	if (node->left && node->right) {				// 1, 2, 3
-		remove = node->right;
-		while (remove->left)
-			remove = remove->left;
-	}
-	color = remove->color;
-	parent = remove->parent;					// dnode为哨兵节点时，其自身无法传递parent参数，用此变量保存并在修正时作为参数
-	if (remove->left)						// 4, 5, 6
-		dnode = remove->left;
-	else
-		dnode = remove->right;
-	if (dnode)							// 7
-		dnode->parent = remove->parent;
-	if (remove->parent)						// 8, 9, 10, 11, 12, remove的子树（唯一或没有）绕过remove接到remove->parent的相应子节点上
-		if (remove->parent->left == remove)
-			remove->parent->left = dnode;
-		else
-			remove->parent->right = dnode;
-	else
-		root = dnode;						// 经过4-12步，如果remove既没有parent又没有子树，那么说明remove是树里最后一个节点，此时root==dnode==NULL
-	if (remove != node)						// 13, 14, 15, 如果是用了中序后继作为替身，那么把替身中的元素复制到要被删除的节点node中去
-		node->element = remove->element;
-	free(remove);
-	if (color == Black)
-		root = __rbt_delete_rebalance(dnode, parent, root);
-	return root;
-}
-
-**
+/**
  * 红黑树插入新节点后重新平衡的算法描述：
  * 需要修复的情况有三种，以当前节点的父节点是其祖父节点的左子节点为例
  * Case 1: 父节点和叔叔节点都是红色
@@ -865,8 +723,8 @@ static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root)	// 从根为roo
  *13						color[p[p[z]]] := RED		// Fix Case 3: Paint grandparent to RED
  *14						RIGHT-ROTATE(T, p[p[z]])	// Fix Case 3: Right rotate on grandparent
  *15			else (For the condition that the parent is the right son of grandparent, same as then clause with "right" and "left" exchanged)
- *
-static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)	// 红黑树插入节点后重新平衡
+ */
+static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)
 {
 	rbt_node_p parent, grandpa, uncle, temp;
 	while ((parent = node->parent) && parent->color == Red) {		// 1
@@ -913,7 +771,81 @@ static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)	// �
 	return root;
 }
 
-**
+/**
+ * 红黑树删除节点的算法描述：
+ * RB-DELETE(T, z)
+ * 1	if left[z] == nil[T] or right[z] == nil[T]		// 找到真正要删除的节点y
+ * 2		then y := z
+ * 3		else y := TREE-SUCCESSOR(z)			// 求最小后继，就是中序遍历的后继节点
+ * 4	if left[y] != nil[T]
+ * 5		then x := left[y]				// y只有一棵子树
+ * 6		else x := right[y]
+ * 7	p[x] := p[y]						// 红黑树的算法描述中没有NULL，只有哨兵节点nil[T]，所以在算法描述中不判断x是否为NULL
+ * 8	if p[y] == nil[T]
+ * 9		then root[T] := x
+ *10		else if y == left[p[y]]
+ *11			then left[p[y]] := x
+ *12			else right[p[y]] := x
+ *13	if y != z
+ *14		then key[z] := key[y]
+ *15		     copy y's satellite data into z
+ *16	if color[y] == BLACK
+ *17		then RB-DELETE-FIXUP(T, x)
+ *18	return y
+ *--------------------------------------------------------------
+ * 寻找中序后继节点的算法描述：
+ * TREE-SUCCESSOR(x)
+ * 1	if right[x] != nil[T]
+ * 2		then return TREE-MINIMUN(right[x])
+ * 3	y := p[x]
+ * 4	while y != nil[T] and x == right[y]
+ * 5		do x := y
+ * 6		   y := p[y]
+ * 7	return y
+ *--------------------------------------------------------------
+ * 寻找树中最小节点的算法描述：
+ * TREE-MINIMUN(x)
+ * 1	while left[x] != nil[T]
+ * 2		do x := left[x]
+ * 3	return x
+ *--------------------------------------------------------------
+ * 说明：由于删除节点时仅在符合条件left[z] != nil[T] and right[z] != nil[T]时才去z的中序后继作为替身，所以可以明确这里的TREE-SUCCESSOR算法可以简化为TREE-MINIMUN(right[z])
+ */
+static rbt_node_p __rbt_delete(rbt_node_p node, rbt_node_p root)
+{
+	rbt_node_p remove = node, dnode, parent;
+	RBT_Color color;
+
+	if (node->left && node->right) {				// 1, 2, 3
+		remove = node->right;
+		while (remove->left)
+			remove = remove->left;
+	}
+	color = remove->color;
+	parent = remove->parent;					// dnode为哨兵节点时，其自身无法传递parent参数，用此变量保存并在修正时作为参数
+	if (remove->left)						// 4, 5, 6
+		dnode = remove->left;
+	else
+		dnode = remove->right;
+	if (dnode)							// 7
+		dnode->parent = remove->parent;
+	if (remove->parent)						// 8, 9, 10, 11, 12, remove的子树（唯一或没有）绕过remove接到remove->parent的相应子节点上
+		if (remove->parent->left == remove)
+			remove->parent->left = dnode;
+		else
+			remove->parent->right = dnode;
+	else
+		root = dnode;						// 经过4-12步，如果remove既没有parent又没有子树，那么说明remove是树里最后一个节点，此时root==dnode==NULL
+	__element_destroy(node->element);
+	if (remove != node)						// 13, 14, 15, 如果是用了中序后继作为替身，那么把替身中的元素复制到要被删除的节点node中去
+		node->element = remove->element;
+	free(remove);
+	if (color == Black)
+		root = __rbt_delete_rebalance(dnode, parent, root);
+	return root;
+}
+
+/**
  * 红黑树删除节点后修复平衡算法的描述：
  * 当前节点的颜色为黑才需要修复，需要修复的情况有四种，以当前节点在父节点的左分支为例
  * Case 1: 兄弟节点为红色
@@ -944,8 +876,8 @@ static rbt_node_p __rbt_insert_rebalance(rbt_node_p node, rbt_node_p root)	// �
  *21						x := root[T]			// Fix Case 4, algorithm must be finished after fixed case 4
  *22			else (same as then clause with "right" and "left" exchanged)
  *23	color[x] := BLACK
- *
-static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root)		// 红黑树删除节点后重新平衡
+ */
+static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt_node_p root)
 {
 	rbt_node_p sibling;
 	while ((!node || node->color == Black) && node != root) {
@@ -1009,6 +941,53 @@ static rbt_node_p __rbt_delete_rebalance(rbt_node_p node, rbt_node_p parent, rbt
 	if (node)
 		node->color = Black;
 	return root;
+}
+
+static void __it_push(set_it_p it, rbt_node_p node)
+{
+	*(it->top++) = node;
+}
+
+static rbt_node_p __it_pop(set_it_p it)
+{
+	return *(--it->top);
+}
+
+static int __it_stack_empty(set_it_p it)
+{
+	return it->stack == it->top;
+}
+
+/*       ------------------------ legacy static functions --------------------------------------------
+static set_it_p __iterator(set_p set, int asc)				// 生成一个迭代器
+{
+	set_it_p ret = (set_it_p)malloc(sizeof(set_it_t));
+	ret->asc = asc;
+	unsigned int len = lg2(set->size + 1);
+	len = len << 1;			// 红黑树最大树高度小于2*lg2(size+1)
+	ret->stack = (rbt_node_p *)malloc(len  * sizeof(rbt_node_p));
+	ret->top = ret->stack;
+	rbt_node_p current = set->root;
+	while (current != NULL) {
+		__it_push(ret, current);
+		current = ret->asc ? current->left : current->right;
+	}
+	return ret;
+}
+
+static rbt_node_p __it_next(set_it_p it) {					// 中序迭代一个迭代器
+	rbt_node_p ret = NULL;
+	if (!__it_stack_empty(it)) {
+		ret = __it_pop(it);
+		if (it->asc ? ret->right != NULL : ret->left != NULL) {
+			rbt_node_p current = it->asc ? ret->right : ret->left;
+			while (current != NULL) {
+				__it_push(it, current);
+				current = it->asc ? current->left : current->right;
+			}
+		}
+	}
+	return ret;
 }
 
 static void __set_clone(set_p dest, set_p src)				// 将集合src复制一份到dest中
