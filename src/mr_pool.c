@@ -2,7 +2,7 @@
 #include <pthread.h>
 
 #include "mr_pool.h"
-#include "mr_element.c"
+#include "private_element.c"
 
 #define IS_VALID_POOL(X) (X && X->container && X->type == Pool)
 
@@ -78,9 +78,7 @@ int pool_retrieve(Container pool, Element element, ElementType type, size_t len)
 Element pool_release(Container pool, int handler)
 {
 	Element element = NULL;
-	if (IS_VALID_POOL(pool) &&
-			handler >= 0 && handler < ((pool_p)pool->container)->capacity &&
-			((pool_p)pool->container)->elements[handler])
+	if (IS_VALID_POOL(pool) && handler >= 0 && handler < ((pool_p)pool->container)->capacity)
 		element = __pool_release((pool_p)pool->container, handler);
 	return element;
 }
@@ -88,9 +86,7 @@ Element pool_release(Container pool, int handler)
 Element pool_get(Container pool, int handler)
 {
 	Element element = NULL;
-	if (IS_VALID_POOL(pool) &&
-			handler >= 0 && handler < ((pool_p)pool->container)->capacity &&
-			((pool_p)pool->container)->elements[handler])
+	if (IS_VALID_POOL(pool) && handler >= 0 && handler < ((pool_p)pool->container)->capacity)
 		element = __element_clone_value(((pool_p)pool->container)->elements[handler]);
 	return element;
 }
@@ -258,28 +254,30 @@ static Element __pool_release(pool_p pool, int handler)
 	pthread_mutex_lock(&pool->mut);
 	Element ret = NULL;
 	element_p e = pool->elements[handler];
-	if (pool->size == 1) {
-		idle_node_p head;
-		while (pool->next_idle->next) {
-			head = pool->next_idle;
-			pool->next_idle = head->next;
-			free(head);
-		}
-		pool->next_idle->handler = 0;
-	} else {
-		idle_node_p idle = (idle_node_p)malloc(sizeof(idle_node_t));
-		if (idle) {
-			idle->handler = handler;
-			idle->next = pool->next_idle;
-			pool->next_idle = idle;
-		} else {
-			e = NULL;
-		}
-	}
 	if (e && (ret = __element_clone_value(e))) {
-		pool->elements[handler] = NULL;
-		pool->size--;
-		__element_destroy(e);
+		if (pool->size == 1) {
+			idle_node_p head;
+			while (pool->next_idle->next) {
+				head = pool->next_idle;
+				pool->next_idle = head->next;
+				free(head);
+			}
+			pool->next_idle->handler = 0;
+		} else {
+			idle_node_p idle = (idle_node_p)malloc(sizeof(idle_node_t));
+			if (idle) {
+				idle->handler = handler;
+				idle->next = pool->next_idle;
+				pool->next_idle = idle;
+			} else {
+				e = NULL;
+			}
+		}
+		if (e) {
+			pool->elements[handler] = NULL;
+			pool->size--;
+			__element_destroy(e);
+		}
 	}
 	pthread_mutex_unlock(&pool->mut);
 	return ret;

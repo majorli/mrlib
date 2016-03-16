@@ -21,30 +21,43 @@ typedef struct {
 
 element_p __element_create(Element value, ElementType type, size_t len)
 {
-	element_p e = (element_p)malloc(sizeof(element_t));
-	e->type = type;
-	switch (type) {
-		case integer:
-			e->value = malloc(sizeof(Integer));
-			memcpy(e->value, value, sizeof(Integer));
-			e->len = sizeof(Integer);
-			break;
-		case real:
-			e->value = malloc(sizeof(Real));
-			memcpy(e->value, value, sizeof(Real));
-			e->len = sizeof(Real);
-			break;
-		case string:
-			e->value = malloc(len + 1);
-			e->len = len + 1;
-			strncpy(e->value, value, len);
-			*(char *)(e->value + len) = '\0';
-			break;
-		case object:
-			e->value = malloc(len);
-			e->len = len;
-			memcpy(e->value, value, len);
-			break;
+	element_p e = NULL;
+	if ((e = (element_p)malloc(sizeof(element_t)))) {
+		if (value) {
+			e->type = type;
+			switch (type) {
+				case integer:
+					e->value = malloc(sizeof(Integer));
+					memcpy(e->value, value, sizeof(Integer));
+					e->len = sizeof(Integer);
+					break;
+				case real:
+					e->value = malloc(sizeof(Real));
+					memcpy(e->value, value, sizeof(Real));
+					e->len = sizeof(Real);
+					break;
+				case string:
+					e->value = malloc(len + 1);
+					e->len = len + 1;
+					strncpy(e->value, value, len);
+					*(char *)(e->value + len) = '\0';
+					break;
+				case object:
+					if (e->len > 0) {
+						e->value = malloc(len);
+						e->len = len;
+						memcpy(e->value, value, len);
+					} else {
+						e->value = NULL;
+						e->len = 0;
+					}
+					break;
+			}
+		} else {
+			e->type = object;
+			e->value = NULL;
+			e->len = 0;
+		}
 	}
 	return e;
 }
@@ -60,7 +73,7 @@ void __element_destroy(element_p element)
 Element __element_clone_value(element_p element)
 {
 	Element ret = NULL;
-	if ((ret = malloc(element->len)))
+	if (element && element->value && (ret = malloc(element->len)))
 		memcpy(ret, element->value, element->len);
 	return ret;
 }
