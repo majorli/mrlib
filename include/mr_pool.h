@@ -68,14 +68,22 @@ extern double pool_ratio(Container pool);
  *
  * pool
  *	池容器
- *		element		要托管到池中的元素
+ * element
+ *	要托管到池中的元素
+ * type
+ *	元素的类型
+ * len
+ *	元素的长度
+ *	当元素类型为integer, real时，元素长度参数不起作用
+ *	当元素类型为string时，元素长度一般为strlen(string)，也可以用元素长度限定存入容器的字符串的最大长度，即前len个字符，中文字符串要注意汉字截断问题
+ *	当元素类型为object时，元素长度应为sizeof(object)
  *
  * return	托管成功返回一个非负整数的句柄，托管失败返回-1
  */
-extern int pool_retrieve(Container pool, Element element);
+extern int pool_retrieve(Container pool, Element element, ElementType type, size_t len);
 
 /**
- * 从池中释放一个元素
+ * 从池中释放一个元素并销毁池中保存的元素
  *
  * pool
  *	池容器
@@ -121,15 +129,13 @@ extern int pool_expand(Container pool);
 extern int pool_shrink(Container pool);
 
 /**
- * 清空池中所有元素，使用指定的方式对元素进行处置
+ * 清空池中所有元素并销毁所分配的内存
  *
  * pool
  *	要清空的池
- * onremove
- *	用于处置池中元素的函数指针，NULL表示不对元素进行后续处置
  *
  * return	清空成功返回被清空的元素数量，清空失败返回-1
  */
-extern int pool_removeall(Container pool, OnRemove onremove);
+extern int pool_removeall(Container pool);
 
 #endif

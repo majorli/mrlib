@@ -73,17 +73,19 @@ typedef struct {
 	ContainerType type;		// 容器类型
 } Container_t, *Container;
 
-typedef char *string;			// 字符串类型
-typedef void *object;			// 对象类型
+typedef long long Integer;		// 整数类型
+typedef long double Real;		// 实数类型
+typedef char *String;			// 字符串类型
+typedef void *Object;			// 对象类型
 
 /**
  * 元素类型的枚举
  */
 typedef enum {
-	Integer,
-	Real,
-	String,
-	Object
+	integer,
+	real,
+	string,
+	object
 } ElementType;
 
 /**
@@ -92,48 +94,13 @@ typedef enum {
 typedef void *Element;
 
 /**
- * 基础数据类型数据的装箱函数，用于将基础类型的数据包装为容器的元素
- * 装箱函数使用malloc()来分配一块内存，所以装箱后获得的元素不再使用后必须free，内存分配失败返回NULL
+ * 获取元素的真实值，例如: struct NODE s = VALUEOF(element, struct NODE);
  */
-extern Element integer_inbox(long long value);
-extern Element real_inbox(long double value);
-
-/**
- * 基础数据类型元素解包函数，从元素中获取实际的值，元素为NULL时返回0
- */
-extern long long integer_outbox(Element element);
-extern long double real_outbox(Element element);
+#define VALUEOF(element, type) (*(type *)(element))
 
 /**
  * 元素比较函数的类型定义
  */
 typedef int (*CmpFunc)(const Element, const Element);
-
-/**
- * 容器清空时用于处理被清除的节点中元素的处理
- */
-typedef void (*OnRemove)(Element);
-
-/**
- * 元素的默认比较函数，NULL指针认为比非NULL指针小，两个NULL指针认为相等
- *
- * d1,d2
- *	用于比较的元素
- *
- * return
- *	Integer: 比较实际的数值大小，返回-1, 0, 或1
- *	Real: 比较实际的数值大小，返回-1, 0, 或1
- *	String: 调用标准库函数strcmp()进行比较并返回其返回值
- *	Object: 比较两个元素的地址，地址相同认为相等并返回0，否则认为不等，根据两者地址位置的先后返回-1或1
- */
-extern int integer_cmp(const Element e1, const Element e2);
-extern int real_cmp(const Element e1, const Element e2);
-extern int string_cmp(const Element e1, const Element e2);
-extern int obj_cmp(const Element e1, const Element e2);
-
-/**
- * 根据元素类型获取默认的比较函数
- */
-extern CmpFunc default_cmpfunc(ElementType type);
 
 #endif
