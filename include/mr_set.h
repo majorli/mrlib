@@ -121,15 +121,16 @@ extern void set_removeall(Container set);
  *
  * set
  *	集合容器
+ * dir
+ *	迭代方向，Forward(1)或Reverse(0)
  * 
  * return	集合迭代器，集合为空则返回NULL
  */
-extern Iterator set_iterator(Container set, int reverse);
+extern Iterator set_iterator(Container set, int dir);
 
 /**
  * 求两个集合的交集，如果两个集合的元素数据类型不一致则返回空集合
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
- * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  *
  * s1, s2
  *	两个用于运算的集合
@@ -141,7 +142,6 @@ extern Container set_intersection(Container s1, Container s2);
 /**
  * 求两个集合的并集，如果两个集合的元素数据类型不一致则返回空集合
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
- * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  *
  * s1, s2
  *	两个用于运算的集合
@@ -153,7 +153,6 @@ extern Container set_union(Container s1, Container s2);
 /**
  * 求两个集合的减集，即s1-s2，从s1中删除所有存在于s2中的元素，如果两个集合的元素数据类型不一致则结果集与s1的元素相同
  * 如果两个集合的元素比较函数不同则使用s1的cmpfunc进行元素比较，并且结果集合也采用s1的cmpfunc为其元素比较函数
- * 注意：集合运算的结果集中所有元素都是直接从原集合中引用的，所以销毁原集合中的元素会同时销毁结果集中的元素，反之亦然
  *
  * s1, s2
  *	两个用于运算的集合

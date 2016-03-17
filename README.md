@@ -74,7 +74,7 @@ typedef int (*CmpFunc)(const void *, const void *);
 - 迭代接口（以集合容器的迭代器为例）：
 	- 获取容器的迭代器
 	```
-	Iterator it = set_iterator(Container_p container, int reverse);	// reverse == 0: 正向迭代; 非0值: 反向迭代，部分容器可能不支持反向迭代，对这类容器reserve值无意义
+	Iterator it = set_iterator(Container_p container, IterateDirection dir);	// 部分容器可能不支持反向迭代，对这类容器dir值无意义
 	```
 	- 迭代读取元素
 	```

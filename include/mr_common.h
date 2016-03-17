@@ -101,12 +101,18 @@ typedef void *Element;
 /**
  * 元素比较函数的类型定义
  */
-typedef int (*CmpFunc)(const Element, const Element);
+typedef int (*CmpFunc)(const void *, const void *);
 
 /**
  * 迭代器
  */
 typedef struct Iterator_t *Iterator;
+
+/**
+ * 迭代方向
+ */
+const int Forward = 1;
+const int Reverse = 0;
 
 /**
  * 迭代器函数

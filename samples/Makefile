@@ -1,8 +1,5 @@
-#DIR_LIB = lib
-#DIR_SRC = src
 DIR_SAMPLES_BIN = ../bin
 DIR_SAMPLES_SRC = .
-#DIR_USR_LIB = /usr/lib
 
 SAMPLES_SRC = $(wildcard $(DIR_SAMPLES_SRC)/*.c)
 SAMPLES = $(patsubst %.c,%.out,$(notdir $(SAMPLES_SRC)))
@@ -10,7 +7,6 @@ SAMPLES_NAME = $(patsubst %.c,%,$(notdir $(SAMPLES_SRC)))
 
 CC = clang
 LIB = -lmrlib -lpthread 
-#INCLUDE = -Iinclude
 
 define MAKE_SAMPLE
 $(1):

@@ -90,50 +90,58 @@ Element __element_clone_value(element_p element)
  *	String: 调用标准库函数strcmp()进行比较并返回其返回值
  *	Object: 比较两个元素的地址，地址相同认为相等并返回0，否则认为不等，根据两者地址位置的先后返回-1或1
  */
-int int_cmp(const element_p e1, const element_p e2)
+int int_cmp(const void *e1, const void *e2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		if (e1 && e2)
-			ret = *(Integer *)e1->value == *(Integer *)e2->value ? 0 : *(Integer *)e1->value > *(Integer *)e2->value ? 1 : -1;
+		element_p ele1 = (element_p)e1;
+		element_p ele2 = (element_p)e2;
+		if (ele1 && ele2)
+			ret = *(Integer *)ele1->value == *(Integer *)ele2->value ? 0 : *(Integer *)ele1->value > *(Integer *)ele2->value ? 1 : -1;
 		else
-			ret = e1 ? 1 : -1;
+			ret = ele1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int real_cmp(const element_p e1, const element_p e2)
+int real_cmp(const void *e1, const void *e2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		if (e1 && e2)
-			ret = *(Real *)e1->value == *(Real *)e2->value ? 0 : *(Real *)e1->value > *(Real *)e2->value ? 1 : -1;
+		element_p ele1 = (element_p)e1;
+		element_p ele2 = (element_p)e2;
+		if (ele1 && ele2)
+			ret = *(Real *)ele1->value == *(Real *)ele2->value ? 0 : *(Real *)ele1->value > *(Real *)ele2->value ? 1 : -1;
 		else
-			ret = e1 ? 1 : -1;
+			ret = ele1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int str_cmp(const element_p e1, const element_p e2)
+int str_cmp(const void *e1, const void *e2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		if (e1 && e2)
-			ret = strcmp((const char *)e1->value, (const char *)e2->value);
+		element_p ele1 = (element_p)e1;
+		element_p ele2 = (element_p)e2;
+		if (ele1 && ele2)
+			ret = strcmp((const char *)ele1->value, (const char *)ele2->value);
 		else
-			ret = e1 ? 1 : -1;
+			ret = ele1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int obj_cmp(const element_p e1, const element_p e2)
+int obj_cmp(const void *e1, const void *e2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		if (e1 && e2)
-			ret = e1->len == e2->len ? memcmp(e1->value, e2->value, e1->len) : e1->len > e2->len ? 1 : -1;
+		element_p ele1 = (element_p)e1;
+		element_p ele2 = (element_p)e2;
+		if (ele1 && ele2)
+			ret = ele1->len == ele2->len ? memcmp(ele1->value, ele2->value, ele1->len) : ele1->len > ele2->len ? 1 : -1;
 		else
-			ret = e1 ? 1 : -1;
+			ret = ele1 ? 1 : -1;
 	}
 	return ret;
 }
