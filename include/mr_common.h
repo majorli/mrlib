@@ -101,7 +101,7 @@ typedef void *Element;
 /**
  * 元素比较函数的类型定义
  */
-typedef int (*CmpFunc)(const void *, const void *);
+typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 
 /**
  * 迭代器
@@ -117,7 +117,7 @@ const int Reverse = 0;
 /**
  * 迭代器函数
  */
-extern Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *) void (*destroy)(void *));
+extern Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *), void (*destroy)(void *));
 extern Element it_next(Iterator it);
 extern void it_reset(Iterator it);
 extern void it_destroy(Iterator it);

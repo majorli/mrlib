@@ -59,7 +59,7 @@ typedef void *Element;
 - 容器元素可以通过比较函数来进行比较，元素比较函数比较两个元素的大小，第一个元素大于第二个元素时返回一个小于0的整数，反之返回一个大于0的整数，相等时返回0
 - 元素比较函数定义了指针类型，客户程序可以指定自定义的比较函数
 ```
-typedef int (*CmpFunc)(const void *, const void *);
+typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 ```
 - 用户不指定自定义的比较函数时，容器使用其元素类型对应的默认比较函数进行元素比较，规则如下：
 	- Integer: 比较实际的数值大小，返回-1, 0, 或1

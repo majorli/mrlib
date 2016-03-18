@@ -21,7 +21,7 @@ typedef struct {					// 池结构
 } pool_t, *pool_p;
 
 static Container __pool_create(size_t capacity);		// 创建一个池并封装成Container
-static int __pool_retrieve(pool_p pool, Element element);	// 托管一个新的元素
+static int __pool_retrieve(pool_p pool, element_p element);	// 托管一个新的元素
 static Element __pool_release(pool_p pool, int handler);	// 释放一个池节点
 
 Container pool_create(size_t capacity)
@@ -98,7 +98,7 @@ int pool_expand(Container pool)
 		pool_p p = (pool_p)pool->container;
 		pthread_mutex_lock(&p->mut);
 		size_t nc = p->capacity + p->init_capa;
-		element_p tmp = (element_p)realloc(p->elements, nc * sizeof(element_t));
+		element_p *tmp = (element_p *)realloc(p->elements, nc * sizeof(element_p));
 		if (tmp) {
 			p->elements = tmp;
 			for (size_t i = p->capacity; i < nc; i++)
@@ -122,7 +122,7 @@ int pool_shrink(Container pool)
 			tail = tail->next;
 		size_t nc = tail->handler + 10;
 		if (p->capacity > nc && nc >= p->init_capa) {
-			element_p tmp = (element_p)realloc(p->elements, nc * sizeof(element_t));
+			element_p *tmp = (element_p *)realloc(p->elements, nc * sizeof(element_p));
 			if (tmp) {
 				p->elements = tmp;
 				p->capacity = nc;
@@ -179,7 +179,7 @@ static Container __pool_create(size_t capacity)
 	idle_node_p next_idle = NULL;
 	if ((cont = (Container)malloc(sizeof(Container_t))) &&
 			(pool = (pool_p)malloc(sizeof(pool_t))) &&
-			(elements = (element_p)malloc(capacity * sizeof(element_t))) &&
+			(elements = (element_p *)malloc(capacity * sizeof(element_p))) &&
 			(next_idle = (idle_node_p)malloc(sizeof(idle_node_t)))) {
 		for (size_t i = 0; i < capacity; i++)
 			elements[i] = NULL;

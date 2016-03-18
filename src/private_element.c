@@ -1,5 +1,5 @@
 /**
- * mr_element.c£¬ÓÃÓÚ´¦ÀíÔªËØ·â×°¡¢±È½Ï¡¢È¡ÖµµÄË½ÓĞº¯Êı
+ * private_element.c ç”¨äºå…ƒç´ æ“ä½œçš„å†…éƒ¨å‡½æ•°
  */
 
 #ifndef MR_ELEMENT_C
@@ -11,7 +11,7 @@
 #include "mr_common.h"
 
 /**
- * ÔªËØµÄÄÚ²¿½á¹¹
+ * å…ƒç´ çš„å†…éƒ¨ç»“æ„
  */
 typedef struct {
 	void *value;
@@ -79,69 +79,61 @@ Element __element_clone_value(element_p element)
 }
 
 /**
- * ÔªËØµÄÄ¬ÈÏ±È½Ïº¯Êı£¬NULLÖ¸ÕëÈÏÎª±È·ÇNULLÖ¸ÕëĞ¡£¬Á½¸öNULLÖ¸ÕëÈÏÎªÏàµÈ
+ * é»˜è®¤çš„å…ƒç´ æ¯”è¾ƒå‡½æ•°ï¼ŒNULLè®¤ä¸ºæ¯”ä»»ä½•éNULLå…ƒç´ å°ï¼Œä¸¤ä¸ªNULLå…ƒç´ ç›¸ç­‰
  *
  * d1,d2
- *	ÓÃÓÚ±È½ÏµÄÔªËØ
+ *	ç”¨ä»¥æ¯”è¾ƒçš„ä¸¤ä¸ªå…ƒç´ 
  *
  * return
- *	Integer: ±È½ÏÊµ¼ÊµÄÊıÖµ´óĞ¡£¬·µ»Ø-1, 0, »ò1
- *	Real: ±È½ÏÊµ¼ÊµÄÊıÖµ´óĞ¡£¬·µ»Ø-1, 0, »ò1
- *	String: µ÷ÓÃ±ê×¼¿âº¯Êıstrcmp()½øĞĞ±È½Ï²¢·µ»ØÆä·µ»ØÖµ
- *	Object: ±È½ÏÁ½¸öÔªËØµÄµØÖ·£¬µØÖ·ÏàÍ¬ÈÏÎªÏàµÈ²¢·µ»Ø0£¬·ñÔòÈÏÎª²»µÈ£¬¸ù¾İÁ½ÕßµØÖ·Î»ÖÃµÄÏÈºó·µ»Ø-1»ò1
+ *	Integer: è½¬æ¢ä¸ºlong longå‹æ•´æ•°æ¯”è¾ƒå¤§å°ï¼Œè¿”å›-1, 0, æˆ–1
+ *	Real: è½¬æ¢ä¸ºlong doubleå‹æµ®ç‚¹æ•°æ¯”è¾ƒå¤§å°ï¼Œè¿”å›-1, 0, æˆ–1
+ *	String: è°ƒç”¨æ ‡å‡†åº“å‡½æ•°strcmp()æ¯”è¾ƒå­—ç¬¦ä¸²å¤§å°
+ *	Object: é¦–å…ˆæ¯”è¾ƒä¸¤ä¸ªå…ƒç´ çš„å®é™…é•¿åº¦ï¼Œé•¿åº¦ç›¸ç­‰æ—¶è°ƒç”¨æ ‡å‡†åº“å‡½æ•°memcmp()æ¯”è¾ƒå­—èŠ‚
  */
-int int_cmp(const void *e1, const void *e2)
+int int_cmp(const Element e1, const Element e2, size_t len1, size_t len2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		element_p ele1 = (element_p)e1;
-		element_p ele2 = (element_p)e2;
-		if (ele1 && ele2)
-			ret = *(Integer *)ele1->value == *(Integer *)ele2->value ? 0 : *(Integer *)ele1->value > *(Integer *)ele2->value ? 1 : -1;
+		if (e1 && e2)
+			ret = *(Integer *)e1 == *(Integer *)e2 ? 0 : *(Integer *)e1 > *(Integer *)e2 ? 1 : -1;
 		else
-			ret = ele1 ? 1 : -1;
+			ret = e1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int real_cmp(const void *e1, const void *e2)
+int real_cmp(const Element e1, const Element e2, size_t len1, size_t len2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		element_p ele1 = (element_p)e1;
-		element_p ele2 = (element_p)e2;
-		if (ele1 && ele2)
-			ret = *(Real *)ele1->value == *(Real *)ele2->value ? 0 : *(Real *)ele1->value > *(Real *)ele2->value ? 1 : -1;
+		if (e1 && e2)
+			ret = *(Real *)e1 == *(Real *)e2 ? 0 : *(Real *)e1 > *(Real *)e2 ? 1 : -1;
 		else
-			ret = ele1 ? 1 : -1;
+			ret = e1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int str_cmp(const void *e1, const void *e2)
+int str_cmp(const Element e1, const Element e2, size_t len1, size_t len2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		element_p ele1 = (element_p)e1;
-		element_p ele2 = (element_p)e2;
-		if (ele1 && ele2)
-			ret = strcmp((const char *)ele1->value, (const char *)ele2->value);
+		if (e1 && e2)
+			ret = strcmp((const char *)e1, (const char *)e2);
 		else
-			ret = ele1 ? 1 : -1;
+			ret = e1 ? 1 : -1;
 	}
 	return ret;
 }
 
-int obj_cmp(const void *e1, const void *e2)
+int obj_cmp(const Element e1, const Element e2, size_t len1, size_t len2)
 {
 	int ret = 0;
 	if (e1 != e2) {
-		element_p ele1 = (element_p)e1;
-		element_p ele2 = (element_p)e2;
-		if (ele1 && ele2)
-			ret = ele1->len == ele2->len ? memcmp(ele1->value, ele2->value, ele1->len) : ele1->len > ele2->len ? 1 : -1;
+		if (e1 && e2)
+			ret = len1 == len2 ? memcmp(e1, e2, len1) : len1 > len2 ? 1 : -1;
 		else
-			ret = ele1 ? 1 : -1;
+			ret = e1 ? 1 : -1;
 	}
 	return ret;
 }

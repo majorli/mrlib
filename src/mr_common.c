@@ -18,7 +18,7 @@ unsigned int lg2(unsigned int n)
 	return ret;
 }
 
-Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *) void (*destroy)(void *))
+Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *), void (*destroy)(void *))
 {
 	Iterator it = (Iterator)malloc(sizeof(struct Iterator_t));
 	it->iterator = iterator;

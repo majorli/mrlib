@@ -33,7 +33,7 @@ typedef struct {
 	rbt_node_p root;		// 根节点
 	size_t size;			// 节点数量
 	CmpFunc cmpfunc;		// 元素比较函数
-	unsigned int changes		// 集合内容发生变更的次数
+	unsigned int changes;		// 集合内容发生变更的次数
 	pthread_mutex_t mut;		// 共享锁
 } set_t, *set_p;
 
@@ -80,7 +80,7 @@ static void __rbt_clone(set_p dest, rbt_node_p src);	// 二叉树复制，采用
 Container set_create(ElementType type, CmpFunc cmpfunc) {
 	Container cont = NULL;
 	set_p set = NULL;
-	if ((set = (set_p)malloc(sizeof(set_t))) && cont = (Container)malloc(sizeof(Container_t))) {
+	if ((set = (set_p)malloc(sizeof(set_t))) && (cont = (Container)malloc(sizeof(Container_t)))) {
 		set->type = type;
 		set->root = NULL;
 		set->size = 0;
@@ -154,7 +154,7 @@ int set_add(Container set, Element element, ElementType type, size_t len)
 			s->changes++;
 			ret = 0;
 		}
-		pthread_mutex_unlock(&set->mut);
+		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
 }
@@ -169,7 +169,7 @@ Element set_remove(Container set, Element element, ElementType type, size_t len)
 		e.value = element;
 		e.type = type;
 		e.len = len;
-		rbt_node_p node = __rbt_search(e, s->root, s->cmpfunc);
+		rbt_node_p node = __rbt_search(&e, s->root, s->cmpfunc);
 		if (node != NULL) {		// 找到要删除的元素
 			ret = __element_clone_value(node->element);
 			s->root = __rbt_delete(node, s->root);	// 删除节点会销毁其中的元素，因此先复制元素
@@ -206,7 +206,7 @@ Iterator set_iterator(Container set, int dir)
 	return it_create(it, __set_it_next, __set_it_reset, __set_it_destroy);
 }
 
-Container set_intersection(Container s1, Container s2);
+Container set_intersection(Container s1, Container s2)
 {
 	Container ret = NULL;
 	if (s1 != s2) {
@@ -237,7 +237,7 @@ Container set_intersection(Container s1, Container s2);
 				rbt_node_p n1 = __set_it_next_node(it1);
 				rbt_node_p n2 = __set_it_next_node(it2);
 				while (n1 && n2) {			// 只要有一个集合已经取完所有数据，那么交集就结束了
-					int cmp = set->cmpfunc(n1->element, n2->element);
+					int cmp = set->cmpfunc(n1->element->value, n2->element->value, n1->element->len, n2->element->len);
 					if (cmp < 0) {			// 集合1中的当前元素比较小，取下一个，继续循环
 						n1 = __set_it_next_node(it1);
 					} else if (cmp > 0) {		// 集合2中的当前元素比较小，取下一个，继续循环
@@ -404,7 +404,7 @@ Container set_minus(Container s1, Container s2)
 				rbt_node_p n2 = __set_it_next_node(it2);
 				rbt_node_p root = NULL;
 				while (n1 && n2) {			// set1结束则循环结束，set2结束则循环结束后把set1剩余的数据全部添加到结果集中
-					int cmp = set->cmpfunc(n1->element, n2->element);
+					int cmp = set->cmpfunc(n1->element->value, n2->element->value, n1->element->len, n2->element->len);
 					if (cmp < 0) {			// 集合1中的当前元素比较小，复制并跳到下一个元素，继续循环
 						element_p e = __element_create(n1->element->value, n1->element->type, n1->element->len);
 						if (!e) {		// 复制元素出错，内存不足，返回空容器
@@ -449,6 +449,7 @@ Container set_minus(Container s1, Container s2)
 		}
 	} else {			// 自己减自己，返回一个空集
 		if (IS_VALID_SET(s1)) {
+			set_p set1 = (set_p)s1->container;
 			set_p set = (set_p)malloc(sizeof(set_t));
 			ret = (Container)malloc(sizeof(Container_t));
 			if (!set || !ret) {	// 内存不足，返回空容器
@@ -475,7 +476,7 @@ Container set_minus(Container s1, Container s2)
 static rbt_node_p __rbt_new_node(element_p element)
 {
 	rbt_node_p nnode = (rbt_node_p)malloc(sizeof(rbt_node_t));
-	nnode->element = ele;
+	nnode->element = element;
 	nnode->left = NULL;
 	nnode->right = NULL;
 	nnode->parent = NULL;
@@ -489,7 +490,7 @@ static rbt_node_p __rbt_new_node(element_p element)
 static void __rbt_destroy_node(rbt_node_p node)
 {
 	__element_destroy(node->element);
-	free(root);
+	free(node);
 }
 
 /**
@@ -518,7 +519,7 @@ static rbt_node_p __rbt_search_aux(element_p ele, rbt_node_p root, CmpFunc cmpfu
 {
 	rbt_node_p ret = root, parent = NULL;
 	int cmp;
-	while (ret != NULL && (cmp = cmpfunc(ele, ret->element)) != 0) {
+	while (ret != NULL && (cmp = cmpfunc(ele->value, ret->element->value, ele->len, ret->element->len)) != 0) {
 		parent = ret;
 		if (cmp < 0)
 			ret = ret->left;
@@ -639,7 +640,7 @@ static rbt_node_p __rbt_insert(element_p ele, rbt_node_p root, CmpFunc cmpfunc)
 	node = __rbt_new_node(ele);
 	node->parent = parent;     
 	if (parent)	// 插入点非空，即原树不为空
-		if (cmpfunc(parent->element, ele) > 0)
+		if (cmpfunc(parent->element->value, ele->value, parent->element->len, ele->len) > 0)
 			parent->left = node;
 		else
 			parent->right = node;
