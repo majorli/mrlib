@@ -6,7 +6,7 @@ DIR_USR_HEADS = /usr/include
 
 LIBRARY = libmrlib.so
 
-OBJECTS_SRC = $(wildcard $(DIR_SRC)/mr_*.c)
+OBJECTS_SRC = $(wildcard $(DIR_SRC)/*.c)
 OBJECTS = $(patsubst %.c,%.o,$(notdir $(OBJECTS_SRC)))
 
 CC = clang

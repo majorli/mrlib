@@ -67,7 +67,10 @@ extern size_t set_size(Container set);
  * type
  *	要搜索的元素的类型
  * len
- *	要搜索的元素的字节长度，仅当type == object时有作用
+ *	要搜索的元素的长度
+ *	当元素类型为integer, real时，元素长度参数为元素实际类型的长度，例如sizeof(int)
+ *	当元素类型为string时，元素长度一般为strlen(string)，也可以用元素长度限定查找的长度，即前len个字符
+ *	当元素类型为object时，元素长度应为sizeof(object)
  *
  * return	集合中存在与element相同的元素时返回1，搜索不到或搜索出错返回0
  */
@@ -84,7 +87,7 @@ extern int set_contains(Container set, Element element, ElementType type, size_t
  *	元素的类型
  * len
  *	元素的长度
- *	当元素类型为integer, real时，元素长度参数不起作用
+ *	当元素类型为integer, real时，元素长度参数为元素实际类型的长度，例如sizeof(int)
  *	当元素类型为string时，元素长度一般为strlen(string)，也可以用元素长度限定存入容器的字符串的最大长度，即前len个字符，中文字符串要注意汉字截断问题
  *	当元素类型为object时，元素长度应为sizeof(object)
  *
@@ -102,7 +105,10 @@ extern int set_add(Container set, Element element, ElementType type, size_t len)
  * type
  *	待删除的元素的类型
  * len
- *	待删除的元素的字节长度，仅当type == object时有作用
+ *	待删除的元素的长度
+ *	当元素类型为integer, real时，元素长度参数为元素实际类型的长度，例如sizeof(int)
+ *	当元素类型为string时，元素长度一般为strlen(string)，也可以用元素长度限定查找的长度，即前len个字符
+ *	当元素类型为object时，元素长度应为sizeof(object)
  *
  * return	删除成功返回集合中的元素，删除失败或未找到返回NULL
  */

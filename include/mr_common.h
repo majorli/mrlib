@@ -111,8 +111,8 @@ typedef struct Iterator_t *Iterator;
 /**
  * 迭代方向
  */
-const int Forward = 1;
-const int Reverse = 0;
+extern const int Forward;
+extern const int Reverse;
 
 /**
  * 迭代器函数

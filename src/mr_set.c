@@ -2,7 +2,7 @@
 #include <pthread.h>
 
 #include "mr_set.h"
-#include "private_element.c"
+#include "private_element.h"
 
 #define IS_VALID_SET(X) (X && X->container && X->type == Set)
 
@@ -126,15 +126,13 @@ size_t set_size(Container set)
 int set_contains(Container set, Element element, ElementType type, size_t len)
 {
 	int ret = 0;
-	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
-		element_t e;
-		e.value = element;
-		e.type = type;
-		e.len = len;
+	element_p e = NULL;
+	if (IS_VALID_SET(set) && element && len && ((set_p)set->container)->type == type && (e = __element_create(element, type, len))) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
-		rbt_node_p result = __rbt_search(&e, s->root, s->cmpfunc);
+		rbt_node_p result = __rbt_search(e, s->root, s->cmpfunc);
 		ret = result ? 1 : 0;
+		__element_destroy(e);
 		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
@@ -143,10 +141,11 @@ int set_contains(Container set, Element element, ElementType type, size_t len)
 int set_add(Container set, Element element, ElementType type, size_t len)
 {
 	int ret = -1;
-	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
+	element_p e = NULL;
+	if (IS_VALID_SET(set) && element && len && ((set_p)set->container)->type == type && (e = __element_create(element, type, len))) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
-		rbt_node_p r = __rbt_insert(__element_create(element, type, len), s->root, s->cmpfunc);
+		rbt_node_p r = __rbt_insert(e, s->root, s->cmpfunc);
 		if (r) {
 			// 插入时如果元素重复则返回NULL，否则返回插入后的红黑树的新根节点
 			s->root = r;
@@ -162,20 +161,18 @@ int set_add(Container set, Element element, ElementType type, size_t len)
 Element set_remove(Container set, Element element, ElementType type, size_t len)
 {
 	Element ret = NULL;
-	if (IS_VALID_SET(set) && element && ((set_p)set->container)->type == type) {
+	element_p e = NULL;
+	if (IS_VALID_SET(set) && element && len && ((set_p)set->container)->type == type && (e = __element_create(element, type, len))) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
-		element_t e;
-		e.value = element;
-		e.type = type;
-		e.len = len;
-		rbt_node_p node = __rbt_search(&e, s->root, s->cmpfunc);
+		rbt_node_p node = __rbt_search(e, s->root, s->cmpfunc);
 		if (node != NULL) {		// 找到要删除的元素
 			ret = __element_clone_value(node->element);
 			s->root = __rbt_delete(node, s->root);	// 删除节点会销毁其中的元素，因此先复制元素
 			s->size--;
 			s->changes++;
 		}
+		__element_destroy(e);
 		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
@@ -367,7 +364,7 @@ Container set_union(Container s1, Container s2)
 			ret->type = Set;
 			pthread_mutex_lock(&set1->mut);
 			__set_clone(set, set1);
-			pthread_mutex_unlock(&(set->mut));
+			pthread_mutex_unlock(&(set1->mut));
 		}
 	}
 	return ret;
@@ -379,7 +376,7 @@ Container set_minus(Container s1, Container s2)
 	if (s1 != s2) {
 		if (IS_VALID_SET(s1) && IS_VALID_SET(s2)) {	// 如果有非法容器，那么直接返回空容器
 			set_p set1 = (set_p)s1->container;
-			set_p set2 = (set_p)s1->container;
+			set_p set2 = (set_p)s2->container;
 			set_p set = (set_p)malloc(sizeof(set_t));
 			ret = (Container)malloc(sizeof(Container_t));
 			if (!set || !ret) {	// 内存不足，返回空容器
@@ -938,8 +935,7 @@ static set_it_p __set_iterator(set_p set, int dir)
 static rbt_node_p __set_it_next_node(set_it_p it)
 {
 	rbt_node_p ret = NULL;
-	if (it && ((set_it_p)it)->set) {
-		pthread_mutex_lock(&it->set->mut);
+	if (it && it->set) {
 		if (it->changes != it->set->changes)	// 迭代时集合变更，迭代结束，返回NULL
 			it->top = it->stack;
 		if (!__it_stack_empty(it)) {
@@ -952,7 +948,6 @@ static rbt_node_p __set_it_next_node(set_it_p it)
 				}
 			}
 		}
-		pthread_mutex_unlock(&it->set->mut);
 	}
 	return ret;
 }
@@ -995,7 +990,14 @@ static void __set_it_reset(void *it)
  */
 static Element __set_it_next(void *it)
 {
-	return __element_clone_value(__set_it_next_node(it)->element);
+	rbt_node_p node = NULL;
+	if (it && ((set_it_p)it)->set) {
+		set_p set = ((set_it_p)it)->set;
+		pthread_mutex_lock(&set->mut);
+		node = __set_it_next_node(it);
+		pthread_mutex_unlock(&set->mut);
+	}
+	return node ? __element_clone_value(node->element) : NULL;
 }
 
 /**
@@ -1027,7 +1029,7 @@ static void __rbt_clone(set_p dest, rbt_node_p src)
 	element_p e = __element_create(src->element->value, src->element->type, src->element->len);
 	if (!e)
 		return;
-	rbt_node_p root = __rbt_insert(src->element, dest->root, dest->cmpfunc);
+	rbt_node_p root = __rbt_insert(e, dest->root, dest->cmpfunc);
 	if (root) {
 		dest->root = root;
 		dest->size++;

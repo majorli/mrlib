@@ -15,7 +15,7 @@ int main(void)
 
 	// 向池中托管元素，连续托管直到容量不足
 	int i = 0;
-	while ((handlers[i] = pool_retrieve(pool, &i, integer, sizeof(Integer))) != -1)
+	while ((handlers[i] = pool_retrieve(pool, &i, integer, sizeof(int))) != -1)
 		i++;
 	printf("托管第%d个元素时发生错误\n", i);
 	PSTAT(pool);
@@ -51,7 +51,7 @@ int main(void)
 	// 继续添加10个元素
 	printf("继续添加元素\n");
 	i = 0;
-	while ((handlers[i] = pool_retrieve(pool, &i, integer, 0)) != -1)
+	while ((handlers[i] = pool_retrieve(pool, &i, integer, sizeof(int))) != -1)
 		i++;
 	printf("托管第%d个元素时发生错误\n", i);
 	PSTAT(pool);
@@ -60,7 +60,7 @@ int main(void)
 		printf("扩展池容量失败\n");
 	else
 		PSTAT(pool);
-	while ((handlers[i] = pool_retrieve(pool, &i, integer, 0)) != -1)
+	while ((handlers[i] = pool_retrieve(pool, &i, integer, sizeof(int))) != -1)
 		i++;
 	printf("托管第%d个元素时发生错误，扩展池的容量后继续添加\n", i);
 	PSTAT(pool);

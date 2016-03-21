@@ -2,7 +2,7 @@
 #include <pthread.h>
 
 #include "mr_pool.h"
-#include "private_element.c"
+#include "private_element.h"
 
 #define IS_VALID_POOL(X) (X && X->container && X->type == Pool)
 
@@ -70,7 +70,7 @@ double pool_ratio(Container pool)
 int pool_retrieve(Container pool, Element element, ElementType type, size_t len)
 {
 	int handler = -1;
-	if (IS_VALID_POOL(pool) && element)
+	if (IS_VALID_POOL(pool) && element && len)
 		handler = __pool_retrieve((pool_p)pool->container, __element_create(element, type, len));
 	return handler;
 }

@@ -2,6 +2,9 @@
 
 #include "mr_common.h"
 
+const int Forward = 1;
+const int Reverse = 0;
+
 struct Iterator_t {
 	void *iterator;
 	Element (*next)(void *);
