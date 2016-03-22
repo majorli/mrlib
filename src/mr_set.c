@@ -71,6 +71,7 @@ static set_it_p __set_iterator(set_p s, int dir);	// 生成一个迭代器
 static rbt_node_p __set_it_next_node(set_it_p it);	// 中序迭代一个迭代器
 
 static Element __set_it_next(void *it);			// Iterator的next函数
+static Element __set_it_remove(void *it);		// Iterator的remove函数，直接返回NULL
 static void __set_it_reset(void *it);			// Iterator的reset函数
 static void __set_it_destroy(void *it);			// Iterator的destroy函数
 
@@ -200,7 +201,7 @@ Iterator set_iterator(Container set, int dir)
 		it = __set_iterator(s, dir);
 		pthread_mutex_unlock(&s->mut);
 	}
-	return it_create(it, __set_it_next, __set_it_reset, __set_it_destroy);
+	return it_create(it, __set_it_next, __set_it_remove, __set_it_reset, __set_it_destroy);
 }
 
 Container set_intersection(Container s1, Container s2)
@@ -998,6 +999,14 @@ static Element __set_it_next(void *it)
 		pthread_mutex_unlock(&set->mut);
 	}
 	return node ? __element_clone_value(node->element) : NULL;
+}
+
+/**
+ * 迭代器删除元素，集合迭代器不支持删除元素，直接返回NULL
+ */
+static Element __set_it_remove(void *it)
+{
+	return NULL;
 }
 
 /**

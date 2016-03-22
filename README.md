@@ -84,6 +84,11 @@ typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 		free(e);
 	}
 	```
+	- 迭代删除元素（部分容器的迭代器不支持元素删除功能，如集合，对不支持删除元素的迭代器调用`it_remove()`函数将直接返回NULL）
+	```
+	Element e = it_next(it);	// 先迭代一次
+	Element ret = it_remove(it);	// 删除当前迭代位置的元素并返回，此时删除的元素ret就是上一次it_next返回的元素e
+	```
 	- 迭代器重置，回到初始状态，从头开始迭代
 	```
 	it_reset(it);

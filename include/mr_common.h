@@ -117,8 +117,9 @@ extern const int Reverse;
 /**
  * 迭代器函数
  */
-extern Iterator it_create(void *iterator, Element (*next)(void *), void (*reset)(void *), void (*destroy)(void *));
+extern Iterator it_create(void *iterator, Element (*next)(void *), Element (*remove)(void *), void (*reset)(void *), void (*destroy)(void *));
 extern Element it_next(Iterator it);
+extern int it_remove(Iterator it);
 extern void it_reset(Iterator it);
 extern void it_destroy(Iterator it);
 
