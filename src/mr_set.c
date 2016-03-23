@@ -71,7 +71,7 @@ static set_it_p __set_iterator(set_p s, int dir);	// 生成一个迭代器
 static rbt_node_p __set_it_next_node(set_it_p it);	// 中序迭代一个迭代器
 
 static Element __set_it_next(void *it);			// Iterator的next函数
-static Element __set_it_remove(void *it);		// Iterator的remove函数，直接返回NULL
+static size_t __set_it_remove(void *it);		// Iterator的remove函数，直接返回NULL
 static void __set_it_reset(void *it);			// Iterator的reset函数
 static void __set_it_destroy(void *it);			// Iterator的destroy函数
 
@@ -85,7 +85,7 @@ Container set_create(ElementType type, CmpFunc cmpfunc) {
 		set->type = type;
 		set->root = NULL;
 		set->size = 0;
-		set->cmpfunc = cmpfunc ? cmpfunc : default_cmpfunc(type);
+		set->cmpfunc = cmpfunc ? cmpfunc : __default_cmpfunc(type);
 		set->changes = 0;
 		pthread_mutex_init(&set->mut, NULL);
 		cont->container = set;
@@ -148,28 +148,31 @@ int set_add(Container set, Element element, ElementType type, size_t len)
 		pthread_mutex_lock(&s->mut);
 		rbt_node_p r = __rbt_insert(e, s->root, s->cmpfunc);
 		if (r) {
-			// 插入时如果元素重复则返回NULL，否则返回插入后的红黑树的新根节点
+			// 插入时如果元素重复或者发生错误插入失败则返回NULL，否则返回插入后的红黑树的新根节点
 			s->root = r;
 			s->size++;
 			s->changes++;
 			ret = 0;
+		} else {
+			// 插入失败时把生成的元素副本销毁
+			__element_destroy(e);
 		}
 		pthread_mutex_unlock(&s->mut);
 	}
 	return ret;
 }
 
-Element set_remove(Container set, Element element, ElementType type, size_t len)
+size_t set_remove(Container set, Element element, ElementType type, size_t len)
 {
-	Element ret = NULL;
+	size_t ret = 0;
 	element_p e = NULL;
 	if (IS_VALID_SET(set) && element && len && ((set_p)set->container)->type == type && (e = __element_create(element, type, len))) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
 		rbt_node_p node = __rbt_search(e, s->root, s->cmpfunc);
 		if (node != NULL) {		// 找到要删除的元素
-			ret = __element_clone_value(node->element);
-			s->root = __rbt_delete(node, s->root);	// 删除节点会销毁其中的元素，因此先复制元素
+			ret = 1;
+			s->root = __rbt_delete(node, s->root);
 			s->size--;
 			s->changes++;
 		}
@@ -474,11 +477,13 @@ Container set_minus(Container s1, Container s2)
 static rbt_node_p __rbt_new_node(element_p element)
 {
 	rbt_node_p nnode = (rbt_node_p)malloc(sizeof(rbt_node_t));
-	nnode->element = element;
-	nnode->left = NULL;
-	nnode->right = NULL;
-	nnode->parent = NULL;
-	nnode->color = Red;
+	if (nnode) {
+		nnode->element = element;
+		nnode->left = NULL;
+		nnode->right = NULL;
+		nnode->parent = NULL;
+		nnode->color = Red;
+	}
 	return nnode;
 }
 
@@ -636,6 +641,8 @@ static rbt_node_p __rbt_insert(element_p ele, rbt_node_p root, CmpFunc cmpfunc)
 	if ((node = __rbt_search_aux(ele, root, cmpfunc, &parent)))	// 寻找插入点，如果相等的元素已经存在则返回原节点，否则返回NULL并在parent中存放插入点
 		return NULL;
 	node = __rbt_new_node(ele);
+	if (!node)	// 创建节点失败，直接返回NULL
+		return NULL;
 	node->parent = parent;     
 	if (parent)	// 插入点非空，即原树不为空
 		if (cmpfunc(parent->element->value, ele->value, parent->element->len, ele->len) > 0)
@@ -1002,11 +1009,11 @@ static Element __set_it_next(void *it)
 }
 
 /**
- * 迭代器删除元素，集合迭代器不支持删除元素，直接返回NULL
+ * 迭代器删除元素，集合迭代器不支持删除元素，直接返回0
  */
-static Element __set_it_remove(void *it)
+static size_t __set_it_remove(void *it)
 {
-	return NULL;
+	return 0;
 }
 
 /**

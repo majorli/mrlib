@@ -1,7 +1,7 @@
 /**
  * "mr_common.h"，通用工具函数、常量、宏函数和类型定义
  *
- * Version 2.0.0, 李斌，2016/03/11
+ * Version 2.0.1, 李斌，2016/03/23
  */
 #ifndef MR_COMMON_H
 #define MR_COMMON_H
@@ -117,9 +117,9 @@ extern const int Reverse;
 /**
  * 迭代器函数
  */
-extern Iterator it_create(void *iterator, Element (*next)(void *), Element (*remove)(void *), void (*reset)(void *), void (*destroy)(void *));
+extern Iterator it_create(void *iterator, Element (*next)(void *), size_t (*remove)(void *), void (*reset)(void *), void (*destroy)(void *));
 extern Element it_next(Iterator it);
-extern int it_remove(Iterator it);
+extern size_t it_remove(Iterator it);
 extern void it_reset(Iterator it);
 extern void it_destroy(Iterator it);
 

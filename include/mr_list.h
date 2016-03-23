@@ -51,17 +51,69 @@ extern Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
  */
 extern int list_destroy(Container list);
 
+/**
+ * @brief 判断一个列表容器是否为空
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	容器为空返回1，容器不空返回0，无效容器返回1
+ */
 extern int list_isempty(Container list);
 
-extern int list_size(Container list);
+/**
+ * @brief 获取一个列表容器中的元素数量
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	返回容器中的元素数量，无效容器返回0
+ */
+extern size_t list_size(Container list);
 
+/**
+ * @brief 在列表最后添加一个新元素，本函数调用list_insert()函数实现添加
+ *
+ * @param list
+ * 	列表容器
+ * @param element
+ * 	待添加元素的值
+ * @param type
+ * 	待添加元素的类型
+ * @param len
+ * 	待添加元素的字节长度
+ *
+ * @return 
+ * 	添加成功返回0，失败返回-1
+ */
 extern int list_append(Container list, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 在列表指定位置插入一个元素
+ *
+ * @param list
+ * 	列表容器
+ * @param index
+ * 	插入的位置，超过现有列表尾部的在尾部插入
+ * @param element
+ * 	待插入元素的值
+ * @param type
+ * 	待插入元素的类型
+ * @param len
+ * 	待插入元素的字节长度
+ *
+ * @return 
+ * 	插入成功返回0，失败返回-1
+ */
 extern int list_insert(Container list, size_t index, Element element, ElementType type, size_t len);
 
 extern Element list_get(Container list, size_t index);
 
-extern Element list_remove(Container list, size_t index);
+extern size_t list_remove_at(Container list, size_t index);
+
+extern size_t list_remove(Container list, Element element, ElementType type, size_t len);
 
 extern void list_removeall(Container list);
 
@@ -81,13 +133,43 @@ extern void list_minus(Container l1, Container l2);
 
 extern void list_retain(Container l1, Container l2);
 
-extern void list_push(Container list, Element element, ElementType type, size_t len);
+/**
+ * @brief 用列表实现堆栈压栈操作，本函数调用list_insert()函数实现
+ *
+ * @param list
+ * 	列表容器
+ * @param element
+ * 	待压栈元素的值
+ * @param type
+ * 	待压栈元素的类型
+ * @param len
+ * 	待压栈元素的字节长度
+ *
+ * @return 
+ * 	压栈成功返回0，失败返回-1
+ */
+extern int list_push(Container list, Element element, ElementType type, size_t len);
 
 extern Element list_pop(Container list);
 
 extern Element list_peak(Container list);
 
-extern void list_enqueue(Container list, Element element, ElementType type, size_t len);
+/**
+ * @brief 用列表实现队列入队操作，本函数调用list_insert()函数实现
+ *
+ * @param list
+ * 	列表容器
+ * @param element
+ * 	待入队元素的值
+ * @param type
+ * 	待入队元素的类型
+ * @param len
+ * 	待入队元素的字节长度
+ *
+ * @return 
+ * 	入队成功返回0，失败返回-1
+ */
+extern int list_enqueue(Container list, Element element, ElementType type, size_t len);
 
 extern Element list_dequeue(Container list);
 

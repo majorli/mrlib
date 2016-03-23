@@ -20,9 +20,9 @@ typedef struct {					// 池结构
 	pthread_mutex_t mut;				// 共享锁
 } pool_t, *pool_p;
 
-static Container __pool_create(size_t capacity);		// 创建一个池并封装成Container
-static int __pool_retrieve(pool_p pool, element_p element);	// 托管一个新的元素
-static Element __pool_release(pool_p pool, int handler);	// 释放一个池节点
+static Container __pool_create(size_t capacity);				// 创建一个池并封装成Container
+static PoolNodeHandler __pool_retrieve(pool_p pool, element_p element);		// 托管一个新的元素
+static size_t __pool_release(pool_p pool, PoolNodeHandler handler);		// 释放一个池节点
 
 Container pool_create(size_t capacity)
 {
@@ -67,23 +67,25 @@ double pool_ratio(Container pool)
 	return IS_VALID_POOL(pool) ? (double)((pool_p)pool->container)->size / (double)((pool_p)pool->container)->capacity * 100.0 : 0.0;
 }
 
-int pool_retrieve(Container pool, Element element, ElementType type, size_t len)
+PoolNodeHandler pool_retrieve(Container pool, Element element, ElementType type, size_t len)
 {
-	int handler = -1;
-	if (IS_VALID_POOL(pool) && element && len)
-		handler = __pool_retrieve((pool_p)pool->container, __element_create(element, type, len));
+	PoolNodeHandler handler = -1;
+	element_p ele = NULL;
+	if (IS_VALID_POOL(pool) && element && len && (ele = __element_create(element, type, len)))
+		if((handler = __pool_retrieve((pool_p)pool->container, __element_create(element, type, len))) == -1)
+			__element_destroy(ele);
 	return handler;
 }
 
-Element pool_release(Container pool, int handler)
+size_t pool_release(Container pool, PoolNodeHandler handler)
 {
-	Element element = NULL;
+	size_t ret = 0;
 	if (IS_VALID_POOL(pool) && handler >= 0 && handler < ((pool_p)pool->container)->capacity)
-		element = __pool_release((pool_p)pool->container, handler);
-	return element;
+		ret = __pool_release((pool_p)pool->container, handler);
+	return ret;
 }
 
-Element pool_get(Container pool, int handler)
+Element pool_get(Container pool, PoolNodeHandler handler)
 {
 	Element element = NULL;
 	if (IS_VALID_POOL(pool) && handler >= 0 && handler < ((pool_p)pool->container)->capacity)
@@ -219,9 +221,9 @@ static Container __pool_create(size_t capacity)
  * 9	size[P]++
  *10	return h
  */
-static int __pool_retrieve(pool_p pool, element_p element)
+static PoolNodeHandler __pool_retrieve(pool_p pool, element_p element)
 {
-	int h = -1;
+	PoolNodeHandler h = -1;
 	pthread_mutex_lock(&pool->mut);
 	if (pool->size < pool->capacity) {
 		h = pool->next_idle->handler++;
@@ -249,12 +251,12 @@ static int __pool_retrieve(pool_p pool, element_p element)
  * 6		else push h into next_idle[P]
  * 7	return e
  */
-static Element __pool_release(pool_p pool, int handler)
+static size_t __pool_release(pool_p pool, PoolNodeHandler handler)
 {
 	pthread_mutex_lock(&pool->mut);
-	Element ret = NULL;
+	size_t ret = 0;
 	element_p e = pool->elements[handler];
-	if (e && (ret = __element_clone_value(e))) {
+	if (e) {
 		if (pool->size == 1) {
 			idle_node_p head;
 			while (pool->next_idle->next) {
@@ -277,6 +279,7 @@ static Element __pool_release(pool_p pool, int handler)
 			pool->elements[handler] = NULL;
 			pool->size--;
 			__element_destroy(e);
+			ret = 1;
 		}
 	}
 	pthread_mutex_unlock(&pool->mut);

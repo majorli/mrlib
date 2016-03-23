@@ -23,29 +23,23 @@ int main(void)
 	// 通过句柄从池中取得托管的元素
 	for (int j = 0; j < i; j += 2) {
 		Element temp = pool_get(pool, handlers[j]);
-		printf("通过句柄%d 获得元素%d\n", handlers[j], *(int *)temp);
+		printf("通过句柄%d获得元素%d\n", handlers[j], VALUEOF(temp, int));
 		free(temp);
 	}
 
 	// 释放池中句柄对应的节点
-	for (int j = 1; j < i; j+= 2) {
-		Element temp = pool_release(pool, handlers[j]);
-		printf("释放了句柄%d, 释放出的元素为%d\n", handlers[j], VALUEOF(temp, int));
-		free(temp);
-	}
+	for (int j = 1; j < i; j+= 2)
+		printf("释放句柄%d，%s\n", handlers[j], pool_release(pool, handlers[j]) ? "成功" : "失败");
 	PSTAT(pool);
 
 	// 已经释放的句柄再去获取元素或再次释放将返回错误的结果
 	printf("尝试通过已经释放的句柄3获取元素，返回值为%p\n", pool_get(pool, 3));
-	printf("尝试再次释放已经释放的句柄5，返回值为%p\n", pool_release(pool, 5));
+	printf("尝试再次释放已经释放的句柄5，返回值为%zu\n", pool_release(pool, 5));
 	PSTAT(pool);
 
 	// 把池里的元素清空
-	for (int j = 0; j < i; j += 2) {
-		Element temp = pool_release(pool, handlers[j]);
-		printf("释放了句柄%d, 释放出的元素为%d\n", handlers[j], VALUEOF(temp, int));
-		free(temp);
-	}
+	for (int j = 0; j < i; j += 2)
+		printf("释放句柄%d，%s\n", handlers[j], pool_release(pool, handlers[j]) ? "成功" : "失败");
 	PSTAT(pool);
 
 	// 继续添加10个元素
@@ -67,7 +61,7 @@ int main(void)
 
 	// 每隔2个释放一个句柄
 	for (int j = 0; j < i; j+=3) {
-		free(pool_release(pool, handlers[j]));
+		pool_release(pool, handlers[j]);
 		printf("释放了句柄%d, ", handlers[j]);
 		PSTAT(pool);
 	}

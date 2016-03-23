@@ -78,7 +78,7 @@ Element __element_clone_value(element_p element)
 	return ret;
 }
 
-CmpFunc default_cmpfunc(ElementType type)
+CmpFunc __default_cmpfunc(ElementType type)
 {
 	CmpFunc ret = NULL;
 	switch (type) {

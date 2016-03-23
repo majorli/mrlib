@@ -7,12 +7,14 @@
  * 池扩展后不会随着资源的释放而自动缩小容量，因此不受控制地经常扩展可能造成内存浪费，也可以使用pool_shrink()函数来人为地缩小池的容量
  * 池容器不接受NULL元素或长度为0的元素
  *
- * Version 2.0.0, 李斌，2016/03/11
+ * Version 2.0.1, 李斌，2016/03/23
  */
 #ifndef MR_POOL_H
 #define MR_POOL_H
 
 #include "mr_common.h"
+
+typedef int PoolNodeHandler;
 
 /**
  * @brief 创建一个容量为capacity个节点的池，capacity小于10时取下限10
@@ -87,7 +89,7 @@ extern double pool_ratio(Container pool);
  * @return
  *	托管成功返回一个非负整数的句柄，托管失败返回-1
  */
-extern int pool_retrieve(Container pool, Element element, ElementType type, size_t len);
+extern PoolNodeHandler pool_retrieve(Container pool, Element element, ElementType type, size_t len);
 
 /**
  * @brief 从池中释放一个元素并销毁池中保存的元素
@@ -98,9 +100,9 @@ extern int pool_retrieve(Container pool, Element element, ElementType type, size
  *	要释放的元素的句柄
  *
  * @return
- *	释放成功返回被释放的元素，释放失败返回NULL
+ *	释放的元素的数量，释放失败或句柄无效将返回0
  */
-extern Element pool_release(Container pool, int handler);
+extern size_t pool_release(Container pool, PoolNodeHandler handler);
 
 /**
  * @brief 从池中获取一个元素
@@ -113,7 +115,7 @@ extern Element pool_release(Container pool, int handler);
  * @return
  *	获取成功返回句柄对应的元素，获取失败返回NULL
  */
-extern Element pool_get(Container pool, int handler);
+extern Element pool_get(Container pool, PoolNodeHandler handler);
 
 /**
  * @brief 扩展池的容量，扩展的容量为池创建时的初始容量

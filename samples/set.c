@@ -13,6 +13,7 @@ void show_set(Container set)
 		printf("%2d, ", VALUEOF(e,int));
 		if ((count++) % 10 == 9)
 			printf("\n");
+		free(e);
 	}
 	printf("\n");
 	it_destroy(it);
@@ -28,6 +29,7 @@ void show_set_r(Container set)
 		printf("%2d, ", VALUEOF(e, int));
 		if ((count++) % 10 == 9)
 			printf("\n");
+		free(e);
 	}
 	printf("\n");
 	it_destroy(it);

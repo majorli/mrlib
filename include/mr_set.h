@@ -8,7 +8,7 @@
  * 集合容器为强类型容器，创建时指定容器中元素的类型，与创建时指定的类型不同的元素无法存储，且集合容器不接受NULL元素
  * 如果创建集合容器时使用object元素类型，则相当于在容器中可以存储不同类型数据的能力，此时注意需提供符合客户程序需要的cmpfunc函数
  *
- * Version 2.0.0, 李斌，2016/03/22
+ * Version 2.0.1, 李斌，2016/03/23
  */
 #ifndef MR_SET_H
 #define MR_SET_H
@@ -117,9 +117,9 @@ extern int set_add(Container set, Element element, ElementType type, size_t len)
  *	当元素类型为object时，元素长度应为sizeof(object)
  *
  * @return
- *	删除成功返回集合中的元素，删除失败或未找到返回NULL
+ *	删除的元素的数量，如果元素不存在或者其他原因删除失败则返回0
  */
-extern Element set_remove(Container set, Element element, ElementType type, size_t len);
+extern size_t set_remove(Container set, Element element, ElementType type, size_t len);
 
 /**
  * @brief 删除集合中的所有元素，被清除的元素用onremove函数进行后续处理

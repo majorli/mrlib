@@ -27,7 +27,7 @@ typedef struct {
  * type
  *	元素类型
  * len
- *	元素长度，仅在type == Object或String时有效
+ *	元素长度，此处应提供元素实际类型的真正长度，例如sizeof(int)
  *
  * return
  *	新创建的元素，创建失败返回NULL
@@ -73,6 +73,6 @@ extern Element __element_clone_value(element_p element);
  * return
  *	根据元素类型选择的默认比较函数
  */
-extern CmpFunc default_cmpfunc(ElementType type);
+extern CmpFunc __default_cmpfunc(ElementType type);
 
 #endif

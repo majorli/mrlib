@@ -8,7 +8,7 @@ const int Reverse = 0;
 struct Iterator_t {
 	void *iterator;
 	Element (*next)(void *);
-	Element (*remove)(void *);
+	size_t (*remove)(void *);
 	void (*reset)(void *);
 	void (*destroy)(void *);
 };
@@ -22,7 +22,7 @@ unsigned int lg2(unsigned int n)
 	return ret;
 }
 
-Iterator it_create(void *iterator, Element (*next)(void *), Element (*remove)(void *), void (*reset)(void *), void (*destroy)(void *))
+Iterator it_create(void *iterator, Element (*next)(void *), size_t (*remove)(void *), void (*reset)(void *), void (*destroy)(void *))
 {
 	Iterator it = (Iterator)malloc(sizeof(struct Iterator_t));
 	it->iterator = iterator;
@@ -38,7 +38,7 @@ Element it_next(Iterator it)
 	return it->next(it->iterator);
 }
 
-int it_remove(Iterator it)
+size_t it_remove(Iterator it)
 {
 	return it->remove(it->iterator);
 }

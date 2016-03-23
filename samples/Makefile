@@ -6,7 +6,7 @@ SAMPLES = $(patsubst %.c,%.out,$(notdir $(SAMPLES_SRC)))
 SAMPLES_NAME = $(patsubst %.c,%,$(notdir $(SAMPLES_SRC)))
 
 CC = clang
-LIB = -lmrlib -lpthread 
+LIB = -lmrlib
 
 define MAKE_SAMPLE
 $(1):

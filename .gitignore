@@ -17,7 +17,8 @@
 *.app
 bin
 
-# Vim tags
+# Vim tags and swap files
+*.swp
 tags
 
 # Test folder
