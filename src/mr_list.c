@@ -64,6 +64,12 @@ static int __arraylist_ins(arraylist_p al, size_t size, size_t index, element_p 
 
 static int __linkedlist_search(linkedlist_p ll, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc);		// 搜索链表
 static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc);		// 搜索线性表
+static int __linkedlist_bisearch(element_p e, size_t size, int order, ll_node_p left, ll_node_p right, CmpFunc cmpfunc);	// 链表二分搜索
+static int __arraylist_bisearch(element_p e, element_p *a, int order, int left, int right, CmpFunc cmpfunc);			// 线性表二分搜索
+static void __linkedlist_quicksort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc);				// 链表快速排序
+static void __arraylist_quicksort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc);				// 线性表快速排序
+static void __linkedlist_insertsort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc);				// 链表插入排序
+static void __arraylist_insertsort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc);			// 线性表插入排序
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
 {
@@ -135,6 +141,15 @@ int list_destroy(Container list)
 		ret = 0;
 	}
 	return ret;
+}
+
+void list_set_cmpfunc(Container list, CmpFunc cmpfunc)
+{
+	if (IS_VALID_LIST(list)) {
+		pthread_mutex_lock(&l->mut);
+		((list_p)list->container)->cmpfunc = cmpfunc ? cmpfunc : __default_cmpfunc(((list_p)list->container)->etype);
+		pthread_mutex_unlock(&l->mut);
+	}
 }
 
 int list_isempty(Container list)
@@ -270,17 +285,53 @@ int list_search(Container list, int from, int dir, Element element, ElementType 
 
 int list_bi_search(Container list, Element element, ElementType type, size_t len)
 {
-	return -1;
+	int ret = -1;
+	element_p e = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->etype == type && ((list_p)list->container)->size > 0 && (e = __element_create(element, type, len))) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		int order;
+		if (l->ltype == LinkedList) {
+			linkedlist_p ll = (linkedlist_p)l->list;
+			order = l->cmpfunc(ll->head->value, ll->tail->value, ll->head->len, ll->tail->len) > 0 ? Desc : Asc;
+			ret = __linkedlist_bisearch(e, l->size, order, ll->head, ll->tail, l->cmpfunc);
+		} else {
+			arraylist_p al = (arraylist_p)l->list;
+			order = l->cmpfunc(al->elements[0]->value, al->elements[l->size - 1]->value, al->elements[0]->len, al->elements[l->size -1]->len) > 0 ? Desc : Asc;
+			ret = __arraylist_bisearch(e, al->elements, order, 0, l->size - 1, l->cmpfunc);
+		}
+		__element_destroy(e);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
-void list_qsort(Container list, CmpFunc cmpfunc)
+void list_qsort(Container list, int order)
 {
-	return;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 1) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			__linkedlist_quicksort(((linkedlist_p)l->list)->head, ((linkedlist_p)l->list)->tail, order, l->cmpfunc);
+		else
+			__arraylist_quicksort(((arraylist_p)l->list)->elements, 0, l->size - 1, order, l->cmpfunc);
+		l->changes++;
+		pthread_mutex_unlock(&l->mut);
+	}
 }
 
-void list_isort(Container list, CmpFunc cmpfunc)
+void list_isort(Container list, int order)
 {
-	return;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 1) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			__linkedlist_insertsort(((linkedlist_p)l->list)->head, ((linkedlist_p)l->list)->tail, order, l->cmpfunc);
+		else
+			__arraylist_insertsort(((arraylist_p)l->list)->elements, 0, l->size - 1, order, l->cmpfunc);
+		l->changes++;
+		pthread_mutex_unlock(&l->mut);
+	}
 }
 
 void list_reverse(Container list)
@@ -412,6 +463,14 @@ static void __linkedlist_node_destroy(ll_node_p node)
 	free(node);
 }
 
+/**
+ * @brief 把一个节点从链表中抽离出来
+ *
+ * @param ll
+ * 	链表
+ * @param node
+ * 	待抽离的节点
+ */
 static void __linkedlist_node_plugout(linkedlist_p ll, ll_node_p node)
 {
 	if (node->next)
@@ -781,5 +840,206 @@ static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size,
 		else
 			pos++;
 	return IN(pos, 0, size - 1) ? pos : -1;
+}
+
+/**
+ * @brief 对链表进行快速排序
+ *
+ * @param left
+ * 	左节点
+ * @param right
+ * 	右节点
+ * @param order
+ * 	排序顺序
+ * @param cmpfunc
+ * 	比较函数
+ */
+static void __linkedlist_quicksort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc)
+{
+	if(left == right)
+		return;
+	ll_node_p i = left;
+	ll_node_p j = right;
+	element_p key = left->element;
+	while (i != j) {
+		while (i != j && (order * cmpfunc(key->value, j->element->value, key->len, j->element->len)) <= 0)
+			j = j->prev;
+		if (i != j) {
+			i->element = j->element;
+			i = i->next;
+		}
+		while (i != j && (order * cmpfunc(key->value, i->element->value, key->len, i->element->len)) >= 0)
+			i = i->next;
+		if (i != j) {
+			j->element = i->element;
+			j = j->prev;
+		}
+	}
+	i->element = key;
+	if (left != i)
+		__linkedlist_quicksort(left, i->prev, order, cmpfunc);
+	if (right != i)
+		__linkedlist_quicksort(i->next, right, order, cmpfunc);
+}
+
+/**
+ * @brief 对线性表进行快速排序
+ *
+ * @param a
+ * 	元素数组
+ * @param left
+ * 	左位置
+ * @param right
+ * 	右位置
+ * @param order
+ * 	排序顺序
+ * @param cmpfunc
+ * 	比较函数
+ */
+static void __arraylist_quicksort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc)
+{
+	if(left >= right)
+		return;
+	int i = left;
+	int j = right;
+	element_p key = a[left];
+	while (i < j) {
+		while (i < j && (order * cmpfunc(key->value, a[j]->value, key->len, a[j]->len)) <= 0)
+			j--;
+		if (i < j)
+			a[i++] = a[j];
+		while (i < j && (order * cmpfunc(key->value, a[i]->value, key->len, a[i]->len)) >= 0)
+			i++;
+		if (i < j)
+			a[j--] = a[i];
+	}
+	a[i] = key;
+	__arraylist_quicksort(a, left, i - 1, order, cmpfunc);
+	__arraylist_quicksort(a, i + 1, right, order, cmpfunc);
+}
+
+/**
+ * @brief 对链表进行插入排序
+ *
+ * @param left
+ * 	左节点
+ * @param right
+ * 	右节点
+ * @param order
+ * 	排序顺序
+ * @param cmpfunc
+ * 	比较函数
+ */
+static void __linkedlist_insertsort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc)
+{
+	ll_node_p i, j;
+	i = left->next;
+	while (i != right->next) {
+		element_p temp = i->element;
+		j = i;
+		while (j != left && (order * cmpfunc(j->prev->element->value, temp->value, j->prev->element->len, temp->len)) > 0) {
+			j->element = j->prev->element;
+			j = j->prev;
+		}
+		j->element = temp;
+		i = i->next;
+	}
+}
+
+/**
+ * @brief 对线性表进行插入排序
+ *
+ * @param a
+ * 	元素数组
+ * @param left
+ * 	左位置
+ * @param right
+ * 	右位置
+ * @param order
+ * 	排序顺序
+ * @param cmpfunc
+ * 	比较函数
+ */
+static void __arraylist_insertsort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc)
+{
+	int i, j;
+	for (i = left + 1; i <= right; i++) {
+		element_p temp = a[i];
+		j = i;
+		while (j > left && (order * cmpfunc(a[j - 1]->value, temp->value, a[j - 1]->len, temp->len)) > 0) {
+			a[j] = a[j - 1];
+			j--;
+		}
+		a[j] = temp;
+	}
+}
+
+/**
+ * @brief 对链表进行二分搜索
+ *
+ * @param e
+ * 	搜索的元素
+ * @param size
+ * 	链表中的节点数量
+ * @param order
+ * 	表中元素的排列顺序
+ * @param left
+ * 	左节点
+ * @param right
+ * 	右节点
+ * @param cmpfunc
+ * 	比较函数
+ *
+ * @return 
+ * 	找到的元素的位置，找不到返回-1
+ */
+static int __linkedlist_bisearch(element_p e, size_t size, int order, ll_node_p left, ll_node_p right, CmpFunc cmpfunc)
+{
+	ll_node_p mid = left;
+	static int pos = 0;
+	size_t step = size / 2;
+	pos += step;
+	for (size_t i = 0; i < step; i++)
+		mid = mid->next;
+	int cmp = cmpfunc(e->value, mid->element->value, e->len, mid->element->len);
+	if (cmp == 0)
+		return pos;
+	else if (cmp > 0) {
+		pos++;
+// TODO 20160324 21:37, Libin, ==========================================================================
+	}
+}
+
+/**
+ * @brief 对线性表进行二分搜索
+ *
+ * @param e
+ * 	搜索的元素
+ * @param a
+ * 	元素数组
+ * @param order
+ * 	表中元素的排列顺序
+ * @param left
+ * 	左位置
+ * @param right
+ * 	右位置
+ * @param cmpfunc
+ * 	比较函数
+ *
+ * @return 
+ * 	找到的元素的位置，找不到返回-1
+ */
+static int __arraylist_bisearch(element_p e, element_p *a, int order, int left, int right, CmpFunc cmpfunc)
+{
+	if (left > right)
+		return -1;
+	int mid = (left + right) / 2;
+	int cmp = order * cmpfunc(e->value, a[mid]->value, e->len, a[mid]->len);
+	if (cmp == 0)
+		return mid;
+	else if (cmp > 0)
+		return __arraylist_bisearch(e, a, order, mid + 1, right, cmpfunc);
+	else
+		return __arraylist_bisearch(e, a, order, left, mid - 1, cmpfunc);
 }
 

@@ -52,6 +52,16 @@ extern Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
 extern int list_destroy(Container list);
 
 /**
+ * @brief 设置列表容器的比较函数
+ *
+ * @param list
+ * 	列表容器
+ * @param cmpfunc
+ * 	比较函数，NULL则根据容器的元素数据类型使用系统默认的比较函数
+ */
+extern void list_set_cmpfunc(Container list, CmpFunc cmpfunc);
+
+/**
  * @brief 判断一个列表容器是否为空
  *
  * @param list
@@ -181,11 +191,43 @@ extern void list_removeall(Container list);
  */
 extern int list_search(Container list, int from, int dir, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 对列表进行二分搜索，注意：二分搜索是一种快速但不确定的搜索算法，当列表中有重复元素时，对重复元素的搜索不能确保返回的结果是确定的
+ * 另外，如果列表处于无序状态，或排序和二分搜索用了不同的比较函数，可能导致无法进行正确的搜索
+ *
+ * @param list
+ * 	列表容器
+ * @param element
+ * 	搜索的元素值
+ * @param type
+ * 	搜索的元素类型
+ * @param len
+ * 	搜索的元素长度
+ *
+ * @return 
+ * 	找到相同元素则返回位置，找不到返回-1
+ */
 extern int list_bi_search(Container list, Element element, ElementType type, size_t len);
 
-extern void list_qsort(Container list, CmpFunc cmpfunc);
+/**
+ * @brief 对列表进行快速排序，注意：快速排序是一种速度快但不稳定的排序算法
+ *
+ * @param list
+ * 	列表容器
+ * @param order
+ * 	排序顺序，使用预定义常量Asc或Desc表示升序和降序
+ */
+extern void list_qsort(Container list, int order);
 
-extern void list_isort(Container list, CmpFunc cmpfunc);
+/**
+ * @brief 对列表进行插入排序，注意：插入排序是稳定的排序算法但元素数量很大时速度较慢
+ *
+ * @param list
+ * 	列表容器
+ * @param order
+ * 	排序顺序，使用预定义常量Asc或Desc表示升序和降序
+ */
+extern void list_isort(Container list, int order);
 
 extern void list_reverse(Container list);
 

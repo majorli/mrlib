@@ -115,6 +115,12 @@ extern const int Forward;
 extern const int Reverse;
 
 /**
+ * 排序方向
+ */
+extern const int Asc;
+extern const int Desc;
+
+/**
  * 迭代器函数
  */
 extern Iterator it_create(void *iterator, Element (*next)(void *), size_t (*remove)(void *), void (*reset)(void *), void (*destroy)(void *));

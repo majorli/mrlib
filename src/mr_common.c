@@ -5,6 +5,9 @@
 const int Forward = 1;
 const int Reverse = 0;
 
+const int Asc = 1;
+const int Desc = -1;
+
 struct Iterator_t {
 	void *iterator;
 	Element (*next)(void *);
