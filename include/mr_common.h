@@ -99,7 +99,7 @@ typedef void *Element;
 #define VALUEOF(element, type) (*(type *)(element))
 
 /**
- * 元素比较函数的类型定义
+ * 元素比较函数的类型定义，四个参数依次为元素1的值, 元素2的值, 元素1的长度, 元素2的长度
  */
 typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 

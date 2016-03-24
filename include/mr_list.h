@@ -109,15 +109,77 @@ extern int list_append(Container list, Element element, ElementType type, size_t
  */
 extern int list_insert(Container list, size_t index, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 获取列表容器中第index个位置的元素，index从0开始计数
+ *
+ * @param list
+ * 	列表容器
+ * @param index
+ * 	元素所在位置，从0开始计数
+ *
+ * @return 
+ * 	第index个元素的值，index超过范围时返回NULL
+ */
 extern Element list_get(Container list, size_t index);
 
+/**
+ * @brief 删除列表容器中第index个位置的元素，index从0开始计数
+ *
+ * @param list
+ * 	列表容器
+ * @param index
+ * 	元素所在位置，从0开始计数
+ *
+ * @return 
+ * 	实际删除的元素数量，0或1
+ */
 extern size_t list_remove_at(Container list, size_t index);
 
+/**
+ * @brief 删除列表容器中所有与ele相等的元素
+ *
+ * @param list
+ * 	列表容器
+ * @param element
+ * 	元素的值
+ * @param type
+ * 	元素的类型
+ * @param len
+ * 	元素的长度
+ *
+ * @return 
+ * 	实际删除的元素数量
+ */
 extern size_t list_remove(Container list, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 清空列表容器中所有元素
+ *
+ * @param list
+ * 	列表容器
+ */
 extern void list_removeall(Container list);
 
-extern int list_search(Container list, Element element, ElementType type, size_t len);
+/**
+ * @brief 从第from个元素开始搜索元素
+ *
+ * @param list
+ * 	列表容器
+ * @param from
+ * 	搜索开始的位置，负数表示从头或从尾开始，超限的from值修正为size - 1
+ * @param dir
+ * 	搜索的方向，Forward或Reverse
+ * @param element
+ * 	搜索的元素值
+ * @param type
+ * 	搜索的元素类型
+ * @param len
+ * 	搜索的元素长度
+ *
+ * @return 
+ * 	找到相同元素返回位置，找不到返回-1
+ */
+extern int list_search(Container list, int from, int dir, Element element, ElementType type, size_t len);
 
 extern int list_bi_search(Container list, Element element, ElementType type, size_t len);
 
@@ -150,9 +212,27 @@ extern void list_retain(Container l1, Container l2);
  */
 extern int list_push(Container list, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 用列表实现堆栈弹栈操作
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	栈顶元素，空栈时返回NULL
+ */
 extern Element list_pop(Container list);
 
-extern Element list_peak(Container list);
+/**
+ * @brief 用列表实现堆栈查看栈顶元素的操作
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	栈顶元素，空栈时返回NULL
+ */
+extern Element list_stacktop(Container list);
 
 /**
  * @brief 用列表实现队列入队操作，本函数调用list_insert()函数实现
@@ -171,8 +251,26 @@ extern Element list_peak(Container list);
  */
 extern int list_enqueue(Container list, Element element, ElementType type, size_t len);
 
+/**
+ * @brief 用列表实现队列出队操作
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	队首元素，空队时返回NULL
+ */
 extern Element list_dequeue(Container list);
 
+/**
+ * @brief 用列表实现队列查看队首元素的操作
+ *
+ * @param list
+ * 	列表容器
+ *
+ * @return 
+ * 	队首元素，空队时返回NULL
+ */
 extern Element list_queuehead(Container list);
 
 extern Iterator list_iterator(Container list, int dir);

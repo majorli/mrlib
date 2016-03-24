@@ -48,14 +48,22 @@ typedef struct {
 } list_t, *list_p;
 
 static void __linkedlist_node_destroy(ll_node_p node);						// 销毁链表节点
+static void __linkedlist_node_plugout(linkedlist_p ll, ll_node_p node);				// 从链表中抽离出一个节点
 static void __linkedlist_removeall(linkedlist_p list);						// 清空链表
 static void __arraylist_removeall(arraylist_p list, size_t size);				// 清空线性表
+static size_t __linkedlist_remove_at(linkedlist_p ll, size_t size, size_t index);		// 删除链表节点
+static size_t __arraylist_remove_at(arraylist_p al, size_t size, size_t index);			// 删除线性表元素
+static size_t __linkedlist_remove(linkedlist_p ll, element_p ele, CmpFunc cmpfunc);		// 删除所有与ele相等的元素的链表节点
+static size_t __arraylist_remove(arraylist_p al, size_t size, element_p ele, CmpFunc cmpfunc);	// 删除所有与ele相等的线性表元素
 
 static int __arraylist_expand(arraylist_p list);						// 线性表扩容
 static ll_node_p __linkedlist_node_create(element_p ele);					// 创建一个链表节点
 static ll_node_p __linkedlist_goto(linkedlist_p ll, size_t size, size_t pos);			// 找到链表的第pos个节点
-static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t pos, element_p ele);		// 在pos位置插入一个新元素
-static int __arraylist_ins(arraylist_p al, size_t size, size_t pos, element_p ele);		// 在pos位置插入一个新元素
+static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t index, element_p ele);		// 在index位置插入一个新元素
+static int __arraylist_ins(arraylist_p al, size_t size, size_t index, element_p ele);		// 在index位置插入一个新元素
+
+static int __linkedlist_search(linkedlist_p ll, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc);		// 搜索链表
+static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc);		// 搜索线性表
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
 {
@@ -115,7 +123,7 @@ int list_destroy(Container list)
 		if (l->ltype == LinkedList) {
 			__linkedlist_removeall((linkedlist_p)l->list);
 		} else {
-			__arraylist_removeall((arraylist_p)l->list);
+			__arraylist_removeall((arraylist_p)l->list, l->size);
 			free(((arraylist_p)l)->elements);
 		}
 		free(l->list);
@@ -131,12 +139,12 @@ int list_destroy(Container list)
 
 int list_isempty(Container list)
 {
-	return IS_VALIE_LIST(list) ? ((list_p)list->container)->size == 0 : 1;
+	return IS_VALID_LIST(list) ? ((list_p)list->container)->size == 0 : 1;
 }
 
 size_t list_size(Container list)
 {
-	return IS_VALIE_LIST(list) ? ((list_p)list->container)->size : 0;
+	return IS_VALID_LIST(list) ? ((list_p)list->container)->size : 0;
 }
 
 int list_append(Container list, Element element, ElementType type, size_t len)
@@ -168,27 +176,96 @@ int list_insert(Container list, size_t index, Element element, ElementType type,
 
 Element list_get(Container list, size_t index)
 {
-	return NULL;
+	Element ret = NULL;
+	if (IS_VALID_LIST(list) && index < ((list_p)list->container)->size) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			ret = __element_clone_value((__linkedlist_goto((linkedlist_p)l->list, l->size, index))->element);
+		else
+			ret = __element_clone_value(((arraylist_p)l->list)->elements[index]);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
 size_t list_remove_at(Container list, size_t index)
 {
-	return 0;
+	size_t count = 0;
+	if (IS_VALID_LIST(list) && index < ((list_p)list->container)->size) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			count = __linkedlist_remove_at((linkedlist_p)l->list, l->size, index);
+		else
+			count = __arraylist_remove_at((arraylist_p)l->list, l->size, index);
+		if (count) {
+			l->size -= count;
+			l->changes++;
+		}
+		pthread_mutex_unlock(&l->mut);
+	}
+	return count;
 }
 
 size_t list_remove(Container list, Element element, ElementType type, size_t len)
 {
-	return 0;
+	size_t count = 0;
+	element_p ele = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->etype == type && ((list_p)list->container)->size > 0 && (ele = __element_create(element, type, len))) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			count = __linkedlist_remove((linkedlist_p)l->list, ele, l->cmpfunc);
+		else
+			count = __arraylist_remove((arraylist_p)l->list, l->size, ele, l->cmpfunc);
+		if (count) {
+			l->size -= count;
+			l->changes++;
+		}
+		__element_destroy(ele);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return count;
 }
 
 void list_removeall(Container list)
 {
-	return;
+	if (IS_VALID_LIST(list)) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			__linkedlist_removeall((linkedlist_p)l->list);
+		else
+			__arraylist_removeall((arraylist_p)l->list, l->size);
+		l->size = 0;
+		l->changes++;
+		pthread_mutex_unlock(&l->mut);
+	}
 }
 
-int list_search(Container list, Element element, ElementType type, size_t len)
+int list_search(Container list, int from, int dir, Element element, ElementType type, size_t len)
 {
-	return -1;
+	int ret = -1;
+	element_p ele = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->etype == type && ((list_p)list->container)->size > 0 && (ele = __element_create(element, type, len))) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		size_t start;
+		if (from < 0)
+			start = dir == Reverse ? l->size - 1 : 0;
+		else if (from >= l->size)
+			start = l->size - 1;
+		else
+			start = from;
+		if (l->ltype == LinkedList)
+			ret = __linkedlist_search((linkedlist_p)l->list, start, dir, l->size, ele, l->cmpfunc);
+		else
+			ret = __arraylist_search((arraylist_p)l->list, start, dir, l->size, ele, l->cmpfunc);
+		__element_destroy(ele);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
 int list_bi_search(Container list, Element element, ElementType type, size_t len)
@@ -233,12 +310,41 @@ int list_push(Container list, Element element, ElementType type, size_t len)
 
 Element list_pop(Container list)
 {
-	return NULL;
+	Element ret = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList) {
+			linkedlist_p ll = (linkedlist_p)l->list;
+			ll_node_p top = ll->tail;
+			ret = __element_clone_value(top->element);
+			__linkedlist_node_plugout(ll, top);
+			__linkedlist_node_destroy(top);
+		} else {
+			arraylist_p al = (arraylist_p)l->list;
+			ret = __element_clone_value(al->elements[l->size - 1]);
+			__element_destroy(al->elements[l->size - 1]);
+		}
+		l->size--;
+		l->changes++;
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
-Element list_peak(Container list)
+Element list_stacktop(Container list)
 {
-	return NULL;
+	Element ret = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			ret = __element_clone_value(((linkedlist_p)l->list)->tail->element);
+		else
+			ret = __element_clone_value(((arraylist_p)l->list)->elements[l->size - 1]);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
 int list_enqueue(Container list, Element element, ElementType type, size_t len)
@@ -248,12 +354,43 @@ int list_enqueue(Container list, Element element, ElementType type, size_t len)
 
 Element list_dequeue(Container list)
 {
-	return NULL;
+	Element ret = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList) {
+			linkedlist_p ll = (linkedlist_p)l->list;
+			ll_node_p head = ll->head;
+			ret = __element_clone_value(head->element);
+			__linkedlist_node_plugout(ll, head);
+			__linkedlist_node_destroy(head);
+		} else {
+			arraylist_p al = (arraylist_p)l->list;
+			ret = __element_clone_value(al->elements[0]);
+			__element_destroy(al->elements[0]);
+			for (size_t i = 1; i < l->size; i++)
+				al->elements[i - 1] = al->elements[i];
+		}
+		l->size--;
+		l->changes++;
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
 Element list_queuehead(Container list)
 {
-	return NULL;
+	Element ret = NULL;
+	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+		list_p l = (list_p)list->container;
+		pthread_mutex_lock(&l->mut);
+		if (l->ltype == LinkedList)
+			ret = __element_clone_value(((linkedlist_p)l->list)->head->element);
+		else
+			ret = __element_clone_value(((arraylist_p)l->list)->elements[0]);
+		pthread_mutex_unlock(&l->mut);
+	}
+	return ret;
 }
 
 Iterator list_iterator(Container list, int dir)
@@ -273,6 +410,18 @@ static void __linkedlist_node_destroy(ll_node_p node)
 		return;
 	__element_destroy(node->element);
 	free(node);
+}
+
+static void __linkedlist_node_plugout(linkedlist_p ll, ll_node_p node)
+{
+	if (node->next)
+		node->next->prev = node->prev;		// 非尾节点抽离，后继节点的前驱指针指向当前节点的前驱
+	else
+		ll->tail = node->prev;			// 尾节点抽离，尾指针指向当前节点的前驱
+	if (node->prev)
+		node->prev->next = node->next;		// 非头节点抽离，前驱节点的后继指针指向当前节点的后继
+	else
+		ll->head = node->next;			// 头节点抽离，头指针指向当前节点的后继
 }
 
 /**
@@ -303,11 +452,117 @@ static void __linkedlist_removeall(linkedlist_p list)
  */
 static void __arraylist_removeall(arraylist_p list, size_t size)
 {
-	size_t i;
-	for (i = 0; i < size; i++) {
+	for (size_t i = 0; i < size; i++)
 		__element_destroy(list->elements[i]);
-		list->elements[i] = NULL;
+}
+
+/**
+ * @brief 删除链表中的一个节点
+ *
+ * @param list
+ * 	链表
+ * @param size
+ * 	链表中元素的数量
+ * @param index
+ * 	删除节点的位置
+ *
+ * @return 
+ * 	删除成功的节点数量
+ */
+static size_t __linkedlist_remove_at(linkedlist_p ll, size_t size, size_t index)
+{
+	ll_node_p node = __linkedlist_goto(ll, size, index);
+	size_t ret = 0;
+	if (node) {
+		__linkedlist_node_plugout(ll, node);
+		__linkedlist_node_destroy(node);
+		ret = 1;
 	}
+	return ret;
+}
+
+/**
+ * @brief 删除线性表中的一个元素
+ *
+ * @param list
+ * 	线性表
+ * @param size
+ * 	线性表中元素的数量
+ * @param index
+ * 	删除元素的位置
+ *
+ * @return 
+ * 	删除成功的元素数量
+ */
+static size_t __arraylist_remove_at(arraylist_p al, size_t size, size_t index)
+{
+	element_p ele = al->elements[index];
+	for (size_t i = index; i < size - 1; i++)
+		al->elements[i] = al->elements[i + 1];
+	__element_destroy(ele);
+	return 1;
+}
+
+/**
+ * @brief 在链表中删除所有元素等于ele的节点
+ *
+ * @param ll
+ * 	链表
+ * @param ele
+ * 	元素
+ * @param cmpfunc
+ * 	比较函数
+ *
+ * @return 
+ * 	删除的节点数量
+ */
+static size_t __linkedlist_remove(linkedlist_p ll, element_p ele, CmpFunc cmpfunc)
+{
+	size_t count = 0;
+	ll_node_p node = ll->head;
+	while (node) {
+		if (cmpfunc(node->element->value, ele->value, node->element->len, ele->len) == 0) {
+			__linkedlist_node_plugout(ll, node);
+			ll_node_p n = node;
+			node = node->next;
+			__linkedlist_node_destroy(n);
+			count++;
+		} else {
+			node = node->next;
+		}
+	}
+	return count;
+}
+
+/**
+ * @brief 在线性表中删除所有等于ele的元素
+ *
+ * @param al
+ * 	线性表
+ * @param size
+ * 	表中元素数量
+ * @param ele
+ * 	元素
+ * @param cmpfunc
+ * 	比较函数
+ *
+ * @return 
+ * 	删除的元素数量
+ */
+static size_t __arraylist_remove(arraylist_p al, size_t size, element_p ele, CmpFunc cmpfunc)
+{
+	size_t count = 0;
+	size_t pos = 0;
+	while (pos < size) {
+		if (cmpfunc(al->elements[pos]->value, ele->value, al->elements[pos]->len, ele->len) == 0) {
+			__element_destroy(al->elements[pos]);
+			count++;
+		} else if (count) {
+			al->elements[pos - count] = al->elements[pos];
+		}
+		pos++;
+	}
+	return count;
 }
 
 /**
@@ -397,7 +652,7 @@ static ll_node_p __linkedlist_goto(linkedlist_p ll, size_t size, size_t pos)
  * 	链表
  * @para size
  * 	插入前链表中元素数量
- * @param pos
+ * @param index
  * 	插入位置，超过表尾的添加在尾部
  * @param ele
  * 	新的元素
@@ -405,11 +660,11 @@ static ll_node_p __linkedlist_goto(linkedlist_p ll, size_t size, size_t pos)
  * @return 
  * 	插入成功返回0，失败返回-1
  */
-static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t pos, element_p ele)
+static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t index, element_p ele)
 {
 	ll_node_p node = __linkedlist_node_create(ele);
 	if (node) {
-		ll_node_p pos = __linkedlist_goto(ll, size, pos);
+		ll_node_p pos = __linkedlist_goto(ll, size, index);
 		if (pos) {
 			// 在位置pos处插入node
 			node->next = pos;
@@ -417,7 +672,7 @@ static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t pos, element_p 
 			pos->prev = node;
 			if (node->prev)
 				node->prev->next = node;
-			if (ll->head == pos)
+			else
 				ll->head = node;
 		} else {
 			// 位置pos处无元素，表示当前链表为空或pos在链尾后方，此时在尾部添加
@@ -451,15 +706,80 @@ static int __linkedlist_ins(linkedlist_p ll, size_t size, size_t pos, element_p 
  * @return 
  * 	插入成功返回0，失败返回-1
  */
-static int __arraylist_ins(arraylist_p al, size_t size, size_t pos, element_p ele)
+static int __arraylist_ins(arraylist_p al, size_t size, size_t index, element_p ele)
 {
 	int ret = -1;
-	if (size <  capacity || __arraylist_expand(al) == 0) {
+	if (size <  al->capacity || __arraylist_expand(al) == 0) {
 		size_t i;
-		for (size_t i = size; i > pos; i--)
+		for (size_t i = size; i > index; i--)
 			al->elements[i] = al->elements[i - 1];
 		al->elements[i] = ele;
 		ret = 0;
 	}
 	return ret;
 }
+
+/**
+ * @brief 链表搜索
+ *
+ * @param ll
+ * 	链表
+ * @param from
+ * 	搜索开始位置
+ * @param dir
+ * 	搜索的方向
+ * @param size
+ * 	链表中元素数量
+ * @param ele
+ * 	搜索的元素
+ * @param cmpfunc
+ * 	元素比较函数
+ *
+ * @return 
+ * 	搜索到的位置，搜索不到返回-1
+ */
+static int __linkedlist_search(linkedlist_p ll, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc)
+{
+	int pos = from;
+	ll_node_p node = __linkedlist_goto(ll, size, from);
+	while (node && cmpfunc(node->element->value, ele->value, node->element->len, ele->len))
+		if (dir == Reverse) {
+			node = node->prev;
+			pos--;
+		} else {
+			node = node->next;
+			pos++;
+		}
+	return node ? pos : -1;
+}
+
+/**
+ * @brief 线性表搜索
+ *
+ * @param al
+ * 	线性表
+ * @param from
+ * 	搜索开始位置
+ * @param dir
+ * 	搜索的方向
+ * @param size
+ * 	线性表中元素数量
+ * @param ele
+ * 	搜索的元素
+ * @param cmpfunc
+ * 	元素比较函数
+ *
+ * @return 
+ * 	搜索到的位置，搜索不到返回-1
+ */
+static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc)
+{
+	int pos = from;
+	while (cmpfunc(al->elements[pos]->value, ele->value, al->elements[pos]->len, ele->len) && pos >= 0 && pos < size)
+		if (dir == Reverse)
+			pos--;
+		else
+			pos++;
+	return IN(pos, 0, size - 1) ? pos : -1;
+}
+
