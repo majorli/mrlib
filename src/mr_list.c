@@ -94,10 +94,10 @@ static void __linkedlist_reverse(ll_node_p head, ll_node_p tail);				// 链表�
 static void __arraylist_reverse(element_p *a, size_t size);					// 线性表元素反转排列
 
 static list_it_p __list_iterator(list_p list, int dir);				// 创建一个列表迭代器
-static Element __list_it_next(Iterator it);					// 迭代访问下一个元素
-static size_t __list_it_remove(Iterator it);					// 删除上一次迭代访问的元素
-static void __list_it_reset(Iterator it);					// 重置迭代器
-static void __list_it_destroy(Iterator it);					// 销毁迭代器
+static Element __list_it_next(void *it);					// 迭代访问下一个元素
+static size_t __list_it_remove(void *it);					// 删除上一次迭代访问的元素
+static void __list_it_reset(void *it);						// 重置迭代器
+static void __list_it_destroy(void *it);					// 销毁迭代器
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
 {
@@ -174,8 +174,9 @@ int list_destroy(Container list)
 void list_set_cmpfunc(Container list, CmpFunc cmpfunc)
 {
 	if (IS_VALID_LIST(list)) {
+		list_p l = (list_p)list->container;
 		pthread_mutex_lock(&l->mut);
-		((list_p)list->container)->cmpfunc = cmpfunc ? cmpfunc : __default_cmpfunc(((list_p)list->container)->etype);
+		l->cmpfunc = cmpfunc ? cmpfunc : __default_cmpfunc(l->etype);
 		pthread_mutex_unlock(&l->mut);
 	}
 }
@@ -321,7 +322,7 @@ int list_bi_search(Container list, Element element, ElementType type, size_t len
 		int order;
 		if (l->ltype == LinkedList) {
 			linkedlist_p ll = (linkedlist_p)l->list;
-			order = l->cmpfunc(ll->head->value, ll->tail->value, ll->head->len, ll->tail->len) > 0 ? Desc : Asc;
+			order = l->cmpfunc(ll->head->element->value, ll->tail->element->value, ll->head->element->len, ll->tail->element->len) > 0 ? Desc : Asc;
 			ret = __linkedlist_bisearch(e, l->size, order, ll->head, ll->tail, l->cmpfunc);
 		} else {
 			arraylist_p al = (arraylist_p)l->list;
@@ -365,7 +366,7 @@ void list_isort(Container list, int order)
 void list_reverse(Container list)
 {
 	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 1) {
-		list_p l = (list)list->container;
+		list_p l = (list_p)list->container;
 		pthread_mutex_lock(&l->mut);
 		if (l->ltype == LinkedList)
 			__linkedlist_reverse(((linkedlist_p)l->list)->head, ((linkedlist_p)l->list)->tail);
@@ -374,21 +375,6 @@ void list_reverse(Container list)
 		l->changes++;
 		pthread_mutex_unlock(&l->mut);
 	}
-}
-
-void list_plus(Container l1, Container l2)
-{
-	return;
-}
-
-void list_minus(Container l1, Container l2)
-{
-	return;
-}
-
-void list_retain(Container l1, Container l2)
-{
-	return;
 }
 
 int list_push(Container list, Element element, ElementType type, size_t len)
@@ -1064,7 +1050,7 @@ static int __linkedlist_bisearch(element_p e, size_t size, int order, ll_node_p 
 			pos -= step;			// 修正当前节点的位置
 			s = step;			// 左半表的元素数量
 		}
-	} while (s > 0)					// 下一轮循环已经没有元素的时候循环结束，元素没有找到
+	} while (s > 0);				// 下一轮循环已经没有元素的时候循环结束，元素没有找到
 	return -1;
 }
 
@@ -1162,7 +1148,7 @@ static list_it_p __list_iterator(list_p list, int dir)
 	if (it) {
 		it->list = list;
 		if (list->ltype == LinkedList)
-			it->pos.node = dir == Reverse ? list->tail : list->head;
+			it->pos.node = dir == Reverse ? ((linkedlist_p)list->list)->tail : ((linkedlist_p)list->list)->head;
 		else
 			it->pos.index = dir == Reverse ? list->size - 1 : 0;
 		it->dir = dir;
@@ -1181,7 +1167,7 @@ static list_it_p __list_iterator(list_p list, int dir)
  * @return 
  * 	下一个元素，迭代结束后返回NULL直到迭代器被重置，迭代时发现Fast-Fail时将迭代器置为迭代结束状态并返回NULL
  */
-static Element __list_it_next(Iterator it)
+static Element __list_it_next(void *it)
 {
 	Element ret = NULL;
 	if (it && ((list_it_p)it)->list) {
@@ -1217,7 +1203,7 @@ static Element __list_it_next(Iterator it)
  * @return 
  * 	删除的元素数量，0或1
  */
-static size_t __list_it_remove(Iterator it)
+static size_t __list_it_remove(void *it)
 {
 	size_t count = 0;
 	if (it && ((list_it_p)it)->list && ((list_it_p)it)->removable) {
@@ -1254,13 +1240,13 @@ static size_t __list_it_remove(Iterator it)
  * @param it
  * 	迭代器
  */
-static void __list_it_reset(Iterator it)
+static void __list_it_reset(void *it)
 {
 	if (it && ((list_it_p)it)->list) {
 		list_it_p i = (list_it_p)it;
 		pthread_mutex_lock(&i->list->mut);
 		if (i->list->ltype == LinkedList)
-			i->pos.node = i->dir == Reverse ? i->list->tail : i->list->head;
+			i->pos.node = i->dir == Reverse ? ((linkedlist_p)i->list->list)->tail : ((linkedlist_p)i->list->list)->head;
 		else
 			i->pos.index = i->dir == Reverse ? i->list->size - 1 : 0;
 		i->changes = i->list->changes;
@@ -1275,7 +1261,7 @@ static void __list_it_reset(Iterator it)
  * @param it
  * 	迭代器
  */
-static void __list_it_destroy(Iterator it)
+static void __list_it_destroy(void *it)
 {
 	free(it);
 }
