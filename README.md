@@ -23,7 +23,7 @@ typedef enum {
 	PriorityQueue,
 	Pool,
 	HashTable,
-	Content,
+	Catalogue,
 	Report,
 	Network
 } ContainerType;

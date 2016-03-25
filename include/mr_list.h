@@ -328,4 +328,34 @@ extern Element list_queuehead(Container list);
  */
 extern Iterator list_iterator(Container list, int dir);
 
+/**
+ * @brief 把list2中的所有元素添加到list1的最后，保持在list2中的顺序，两个列表元素类型不同时不做任何添加
+ *
+ * @param list1
+ * 	列表1
+ * @param list2
+ * 	列表2
+ */
+extern void list_plus(Container list1, Container list2);
+
+/**
+ * @brief 从list1中删除所有在list2中存在的元素，两个列表的元素数据类型不同时不做任何删除
+ *
+ * @param list1
+ * 	列表1
+ * @param list2
+ * 	列表2
+ */
+extern void list_minus(Container list1, Container list2);
+
+/**
+ * @brief 从list1中删除所有在list2中不存在的元素，两个列表的元素数据类型不同时不做任何删除
+ *
+ * @param list1
+ * 	列表1
+ * @param list2
+ * 	列表2
+ */
+extern void list_retain(Container list1, Container list2);
+
 #endif

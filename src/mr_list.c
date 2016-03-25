@@ -53,14 +53,14 @@ typedef struct {
 typedef union {
 	int index;
 	ll_node_p node;
-} list_it_pos_t;
+} list_pos_t, *list_pos_p;
 
 /**
  * @brief 列表迭代器
  */
 typedef struct {
 	list_p list;
-	list_it_pos_t pos;
+	list_pos_t pos;
 	int dir;
 	int changes;
 	int removable;
@@ -93,11 +93,15 @@ static void __arraylist_insertsort(element_p *a, size_t left, size_t right, int 
 static void __linkedlist_reverse(ll_node_p head, ll_node_p tail);				// 链表元素反转排列
 static void __arraylist_reverse(element_p *a, size_t size);					// 线性表元素反转排列
 
-static list_it_p __list_iterator(list_p list, int dir);				// 创建一个列表迭代器
-static Element __list_it_next(void *it);					// 迭代访问下一个元素
-static size_t __list_it_remove(void *it);					// 删除上一次迭代访问的元素
-static void __list_it_reset(void *it);						// 重置迭代器
-static void __list_it_destroy(void *it);					// 销毁迭代器
+static list_it_p __list_iterator(list_p list, int dir);						// 创建一个列表迭代器
+static Element __list_it_next(void *it);							// 迭代访问下一个元素
+static size_t __list_it_remove(void *it);							// 删除上一次迭代访问的元素
+static void __list_it_reset(void *it);								// 重置迭代器
+static void __list_it_destroy(void *it);							// 销毁迭代器
+
+static element_p __list_get_at(list_p list, list_pos_t pos);					// 获取当前位置的元素
+static void __list_del_at(list_p list, list_pos_t pos);					// 删除当前位置的元素
+static void __list_append(list_p list, element_p ele);						// 在最后添加元素
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
 {
@@ -477,6 +481,100 @@ Iterator list_iterator(Container list, int dir)
 		pthread_mutex_unlock(&l->mut);
 	}
 	return it ? it_create(it, __list_it_next, __list_it_remove, __list_it_reset, __list_it_destroy) : NULL;
+}
+
+void list_plus(Container list1, Container list2)
+{
+	list_p l1, l2;
+	if (IS_VALID_LIST(list1) && IS_VALID_LIST(list2) &&
+			(l1 = (list_p)list1->container)->etype == (l2 = (list_p)list2->container)->etype &&
+			l2->size > 0) {
+		pthread_mutex_lock(&l1->mut);
+		pthread_mutex_lock(&l2->mut);
+		list_pos_t pos;
+		if (l2->ltype == LinkedList)
+			pos.node = ((linkedlist_p)l2->list)->head;
+		else
+			pos.index = 0;
+		element_p ele;
+		while ((ele = __list_get_at(list2, pos))) {
+			__list_append(list1, ele);
+			if (l2->ltype == LinkedList)
+				pos.node = pos.node->next;
+			else
+				pos.index++;
+		}
+		pthread_mutex_unlock(&l1->mut);
+		pthread_mutex_unlock(&l2->mut);
+	}
+}
+
+void list_minus(Container list1, Container list2)
+{
+	list_p l1, l2;
+	if (IS_VALID_LIST(list1) && IS_VALID_LIST(list2) &&
+			(l1 = (list_p)list1->container)->etype == (l2 = (list_p)list2->container)->etype &&
+			l2->size > 0) {
+		pthread_mutex_lock(&l1->mut);
+		pthread_mutex_lock(&l2->mut);
+		list_pos_t pos;
+		if (l1->ltype == LinkedList)
+			pos.node = ((linkedlist_p)l1->list)->head;
+		else
+			pos.index = 0;
+		element_p ele;
+		int ex;
+		while ((ele = __list_get_at(list1, pos))) {
+			if (l2->ltype == LinkedList)
+				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
+			else
+				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
+			if (ex != -1)
+				__list_del_at(list1, pos);
+			else {
+				if (l1->ltype == LinkedList)
+					pos.node = pos.node->next;
+				else
+					pos.index++;
+			}
+		}
+		pthread_mutex_unlock(&l1->mut);
+		pthread_mutex_unlock(&l2->mut);
+	}
+}
+
+void list_retain(Container list1, Container list2)
+{
+	list_p l1, l2;
+	if (IS_VALID_LIST(list1) && IS_VALID_LIST(list2) &&
+			(l1 = (list_p)list1->container)->etype == (l2 = (list_p)list2->container)->etype &&
+			l2->size > 0) {
+		pthread_mutex_lock(&l1->mut);
+		pthread_mutex_lock(&l2->mut);
+		list_pos_t pos;
+		if (l1->ltype == LinkedList)
+			pos.node = ((linkedlist_p)l1->list)->head;
+		else
+			pos.index = 0;
+		element_p ele;
+		int ex;
+		while ((ele = __list_get_at(list1, pos))) {
+			if (l2->ltype == LinkedList)
+				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
+			else
+				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
+			if (ex == -1)
+				__list_del_at(list1, pos);
+			else {
+				if (l1->ltype == LinkedList)
+					pos.node = pos.node->next;
+				else
+					pos.index++;
+			}
+		}
+		pthread_mutex_unlock(&l1->mut);
+		pthread_mutex_unlock(&l2->mut);
+	}
 }
 
 /**
@@ -1264,5 +1362,78 @@ static void __list_it_reset(void *it)
 static void __list_it_destroy(void *it)
 {
 	free(it);
+}
+
+/**
+ * @brief 获取位置pos上的元素
+ *
+ * @param list
+ * 	列表
+ * @param pos
+ * 	位置
+ *
+ * @return 
+ * 	位置pos上的元素或NULL
+ */
+static element_p __list_get_at(list_p list, list_pos_t pos)
+{
+	if (list->ltype == LinkedList)
+		return pos.node ? pos.node->element : NULL;
+	else
+		return (pos.index >= 0 && pos.index < list->size) ? ((arraylist_p)list->list)->elements[pos.index] : NULL;
+}
+
+/**
+ * @brief 删除位置pos上的元素
+ *
+ * @param list
+ * 	列表
+ * @param pos
+ * 	位置
+ */
+static void __list_del_at(list_p list, list_pos_t pos)
+{
+	if (list->ltype == LinkedList) {
+		ll_node_p n = pos.node;
+		pos.node = pos.node->next;
+		__linkedlist_node_plugout((linkedlist_p)list->list, n);
+		__linkedlist_node_destroy(n);
+	} else {
+		element_p *a = ((arraylist_p)list->list)->elements;
+		__element_destroy(a[pos.index]);
+		for (int i = pos.index + 1; i < list->size; i++)
+			a[p - 1] = a[p];
+	}
+	list->size--;
+	list->changes++;
+}
+
+/**
+ * @brief 在列表最后添加一个元素，添加时复制元素而非引用元素
+ *
+ * @param list
+ * 	列表
+ * @param ele
+ * 	元素
+ */
+static void __list_append(list_p list, element_p ele)
+{
+	element_p e = __element_create(ele->value, ele->type, ele->len);
+	if (!e)
+		return;
+	if (list->ltype == LinkedList) {
+		ll_node_p n = __linkedlist_node_create(e);
+		if (!n)
+			return;
+		((linkedlist_p)list->list)->tail->next = n;
+		n->prev = ((linkedlist_p)list->list)->tail;
+		((linkedlist_p)list->list)->tail = n;
+	} else {
+		arraylist_p al = (arraylist_p)list->list;
+		if (list->size <  al->capacity || __arraylist_expand(al) == 0)
+			al->elements[list->size] = e;
+	}
+	list->size++;
+	list->changes++;
 }
 
