@@ -204,7 +204,7 @@ Iterator set_iterator(Container set, int dir)
 		it = __set_iterator(s, dir);
 		pthread_mutex_unlock(&s->mut);
 	}
-	return it_create(it, __set_it_next, __set_it_remove, __set_it_reset, __set_it_destroy);
+	return it ? it_create(it, __set_it_next, __set_it_remove, __set_it_reset, __set_it_destroy) : NULL;
 }
 
 Container set_intersection(Container s1, Container s2)

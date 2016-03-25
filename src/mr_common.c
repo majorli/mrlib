@@ -28,11 +28,13 @@ unsigned int lg2(unsigned int n)
 Iterator it_create(void *iterator, Element (*next)(void *), size_t (*remove)(void *), void (*reset)(void *), void (*destroy)(void *))
 {
 	Iterator it = (Iterator)malloc(sizeof(struct Iterator_t));
-	it->iterator = iterator;
-	it->next = next;
-	it->remove = remove;
-	it->reset = reset;
-	it->destroy = destroy;
+	if (it) {
+		it->iterator = iterator;
+		it->next = next;
+		it->remove = remove;
+		it->reset = reset;
+		it->destroy = destroy;
+	}
 	return it;
 }
 

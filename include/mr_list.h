@@ -229,6 +229,12 @@ extern void list_qsort(Container list, int order);
  */
 extern void list_isort(Container list, int order);
 
+/**
+ * @brief 对列表容器中的元素进行顺序反转
+ *
+ * @param list
+ * 	列表容器
+ */
 extern void list_reverse(Container list);
 
 extern void list_plus(Container l1, Container l2);
@@ -315,6 +321,17 @@ extern Element list_dequeue(Container list);
  */
 extern Element list_queuehead(Container list);
 
+/**
+ * @brief 获取列表容器的迭代器
+ *
+ * @param list
+ * 	列表容器
+ * @param dir
+ * 	迭代方向，Forward或Reverse
+ *
+ * @return 
+ * 	列表的迭代器，列表无效或空表时返回NULL，创建失败返回NULL
+ */
 extern Iterator list_iterator(Container list, int dir);
 
 #endif
