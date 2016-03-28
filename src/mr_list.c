@@ -62,7 +62,7 @@ typedef struct {
 	list_p list;
 	list_pos_t pos;
 	int dir;
-	int changes;
+	unsigned int changes;
 	int removable;
 } list_it_t, *list_it_p;
 
@@ -100,7 +100,7 @@ static void __list_it_reset(void *it);								// 重置迭代器
 static void __list_it_destroy(void *it);							// 销毁迭代器
 
 static element_p __list_get_at(list_p list, list_pos_t pos);					// 获取当前位置的元素
-static void __list_del_at(list_p list, list_pos_p pos);					// 删除当前位置的元素
+static void __list_del_at(list_p list, list_pos_p pos);						// 删除当前位置的元素
 static void __list_append(list_p list, element_p ele);						// 在最后添加元素
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
@@ -169,6 +169,7 @@ int list_destroy(Container list)
 		l->changes++;
 		pthread_mutex_unlock(&l->mut);
 		pthread_mutex_destroy(&l->mut);
+		free(l);
 		free(list);
 		ret = 0;
 	}
