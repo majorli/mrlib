@@ -1,9 +1,8 @@
 /**
  * "mr_pqueue.h"，优先级队列库
  * 实现一个基于二叉堆构建的优先级队列
- * 优先级队列是元素分优先级的先进先出容器，也可以用迭代器按顺序访问，但是不能反向迭代，也不能在迭代过程中修改、删除元素
- * 优先级队列的迭代器同样使用Fast-Fail模式，如果在迭代过程中目标列表被其他线程或其他迭代器修改，则迭代立即终止，再次迭代需要重置迭代器
- * 优先级队列可以修改元素的优先级，但是不能从队列中间删除元素
+ * 优先级队列是元素分优先级的先进先出容器，也可以用索引进行随机访问，但是随机访问不保证优先级顺序和入队时间顺序，而是按堆排列顺序的乱序访问
+ * 优先级队列通过随机访问可以搜索元素，并可以修改元素的优先级，但是不能从队列中间删除元素，也不能修改元素的内容
  * 优先级队列可以存入重复元素（元素值相等）和空元素（元素值为NULL或元素长度为0），元素默认比较时，元素值为NULL的空元素会认为比元素值不为NULL但元素长度为0的元素更小
  * 优先级队列是强类型容器，在创建时必须指定一种元素类型，表内只能存取相同类型的元素，也可以使用object类型以实现多类型容器
  * 优先级队列按优先级数值越大优先级越高还是越小优先级越高，分为大优先级队列和小优先级队列
@@ -67,10 +66,54 @@ extern int pq_isempty(Container pq);
  * 	队列容器中的元素数量，队列容器无效时返回0
  */
 extern size_t pq_size(Container pq);
+
+/**
+ * @brief 新元素入队
+ *
+ * @param pq
+ * 	优先级队列容器
+ * @param ele
+ * 	元素值
+ * @param type
+ * 	元素数据类型
+ * @param len
+ * 	元素长度
+ * @param priority
+ * 	元素优先级
+ *
+ * @return 
+ * 	入队成功返回顺序索引，入队失败返回-1
+ */
 extern int pq_enqueue(Container pq, Element ele, ElementType type, size_t len, int priority);
-extern Element pq_dequeue(Container pq);
-extern Element pq_queuehead(Container pq);
+
+/**
+ * @brief 按优先级顺序和同级元素FIFO原则出队
+ *
+ * @param pq
+ * 	优先级队列
+ * @param priority
+ * 	出队成功时写入元素的优先级，失败时置为-1，不需要获取优先级时可以传入NULL
+ *
+ * @return 
+ * 	队首元素，空队列或执行失败时返回NULL
+ */
+extern Element pq_dequeue(Container pq, int *priority);
+
+/**
+ * @brief 查看队首元素
+ *
+ * @param pq
+ * 	优先级队列
+ * @param priority
+ * 	获取元素成功时写入元素的优先级，失败时置为-1，不需要获取优先级时可以传入NULL
+ *
+ * @return 
+ * 	队首元素，空队列或执行失败时返回NULL
+ */
+extern Element pq_queuehead(Container pq, int *priority);
 extern int pq_contains(Container pq, Element ele, ElementType type, size_t len);
+extern int pq_search(Container pq, Element ele, ElementType type, size_t len);
+extern int pq_change_pri_at(Container pq, int index, int priority);
 extern int pq_change_pri(Container pq, Element ele, ElementType type, size_t len, int priority);
 
 /**
@@ -83,6 +126,5 @@ extern int pq_change_pri(Container pq, Element ele, ElementType type, size_t len
  * 	清空的元素数量
  */
 extern int pq_removeall(Container pq);
-extern Iterator pq_iterator(Container pq);
 
 #endif
