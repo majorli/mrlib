@@ -1,31 +1,28 @@
 DIR_LIB = lib
 DIR_SRC = src
 DIR_HEADS = include
-DIR_USR_LIB = /usr/lib
-DIR_USR_HEADS = /usr/include
+DIR_USR_LIB = bin
 
-LIBRARY = libmrlib.so
+LIBRARY = libmrlib.dll
 
 OBJECTS_SRC = $(wildcard $(DIR_SRC)/*.c)
 OBJECTS = $(patsubst %.c,%.o,$(notdir $(OBJECTS_SRC)))
 
-CC = clang
+CC = gcc -std=c11 -DHAVE_STRUCT_TIMESPEC
 
 .PHONY:all install clean
 
 all:$(LIBRARY)
 
 $(LIBRARY):$(OBJECTS)
-	$(CC) $(OBJECTS) -shared -fPIC -o$(DIR_LIB)/$(LIBRARY)
+	$(CC) $(OBJECTS) -shared -o$(DIR_LIB)/$(LIBRARY) -lpthreadGC2
 	-rm -f $(OBJECTS)
 
 $(OBJECTS):$(OBJECTS_SRC)
-	$(CC) $(OBJECTS_SRC) -fPIC -c -I$(DIR_HEADS)
+	$(CC) $(OBJECTS_SRC) -c -I$(DIR_HEADS)
 
 install:
 	cp -f $(DIR_LIB)/$(LIBRARY) $(DIR_USR_LIB)/
-	ldconfig
-	cp -f $(DIR_HEADS)/mr_*.h $(DIR_USR_HEADS)/
 
 clean:
-	-rm -f $(DIR_LIB)/*.so *.o
+	-rm -f $(DIR_LIB)/*.dll *.o

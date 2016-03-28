@@ -162,7 +162,7 @@ int list_destroy(Container list)
 			__linkedlist_removeall((linkedlist_p)l->list);
 		} else {
 			__arraylist_removeall((arraylist_p)l->list, l->size);
-			free(((arraylist_p)l)->elements);
+			free(((arraylist_p)l->list)->elements);
 		}
 		free(l->list);
 		l->size = 0;
@@ -474,7 +474,7 @@ Element list_queuehead(Container list)
 Iterator list_iterator(Container list, int dir)
 {
 	list_it_p it = NULL;
-	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+	if (IS_VALID_LIST(list)) {
 		list_p l = (list_p)list->container;
 		pthread_mutex_lock(&l->mut);
 		it = __list_iterator(l, dir);
@@ -497,8 +497,8 @@ void list_plus(Container list1, Container list2)
 		else
 			pos.index = 0;
 		element_p ele;
-		while ((ele = __list_get_at(list2, pos))) {
-			__list_append(list1, ele);
+		while ((ele = __list_get_at(l2, pos))) {
+			__list_append(l1, ele);
 			if (l2->ltype == LinkedList)
 				pos.node = pos.node->next;
 			else
@@ -524,13 +524,13 @@ void list_minus(Container list1, Container list2)
 			pos.index = 0;
 		element_p ele;
 		int ex;
-		while ((ele = __list_get_at(list1, pos))) {
+		while ((ele = __list_get_at(l1, pos))) {
 			if (l2->ltype == LinkedList)
 				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			else
 				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			if (ex != -1)
-				__list_del_at(list1, pos);
+				__list_del_at(l1, pos);
 			else {
 				if (l1->ltype == LinkedList)
 					pos.node = pos.node->next;
@@ -558,13 +558,13 @@ void list_retain(Container list1, Container list2)
 			pos.index = 0;
 		element_p ele;
 		int ex;
-		while ((ele = __list_get_at(list1, pos))) {
+		while ((ele = __list_get_at(l1, pos))) {
 			if (l2->ltype == LinkedList)
 				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			else
 				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			if (ex == -1)
-				__list_del_at(list1, pos);
+				__list_del_at(l1, pos);
 			else {
 				if (l1->ltype == LinkedList)
 					pos.node = pos.node->next;
@@ -898,7 +898,7 @@ static int __arraylist_ins(arraylist_p al, size_t size, size_t index, element_p 
 	int ret = -1;
 	if (size <  al->capacity || __arraylist_expand(al) == 0) {
 		size_t i;
-		for (size_t i = size; i > index; i--)
+		for (i = size; i > index; i--)
 			al->elements[i] = al->elements[i - 1];
 		al->elements[i] = ele;
 		ret = 0;
@@ -1402,7 +1402,7 @@ static void __list_del_at(list_p list, list_pos_t pos)
 		element_p *a = ((arraylist_p)list->list)->elements;
 		__element_destroy(a[pos.index]);
 		for (int i = pos.index + 1; i < list->size; i++)
-			a[p - 1] = a[p];
+			a[i - 1] = a[i];
 	}
 	list->size--;
 	list->changes++;
