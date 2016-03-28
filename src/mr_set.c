@@ -198,7 +198,7 @@ void set_removeall(Container set)
 Iterator set_iterator(Container set, int dir)
 {
 	set_it_p it = NULL;
-	if (IS_VALID_SET(set) && ((set_p)set->container)->root) {
+	if (IS_VALID_SET(set)) {
 		set_p s = (set_p)set->container;
 		pthread_mutex_lock(&s->mut);
 		it = __set_iterator(s, dir);

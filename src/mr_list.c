@@ -86,9 +86,9 @@ static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size,
 static int __linkedlist_bisearch(element_p e, size_t size, int order, ll_node_p left, ll_node_p right, CmpFunc cmpfunc);	// 链表二分搜索
 static int __arraylist_bisearch(element_p e, element_p *a, int order, int left, int right, CmpFunc cmpfunc);			// 线性表二分搜索
 static void __linkedlist_quicksort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc);				// 链表快速排序
-static void __arraylist_quicksort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc);				// 线性表快速排序
+static void __arraylist_quicksort(element_p *a, int left, int right, int order, CmpFunc cmpfunc);				// 线性表快速排序
 static void __linkedlist_insertsort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc);				// 链表插入排序
-static void __arraylist_insertsort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc);			// 线性表插入排序
+static void __arraylist_insertsort(element_p *a, int left, int right, int order, CmpFunc cmpfunc);				// 线性表插入排序
 
 static void __linkedlist_reverse(ll_node_p head, ll_node_p tail);				// 链表元素反转排列
 static void __arraylist_reverse(element_p *a, size_t size);					// 线性表元素反转排列
@@ -100,7 +100,7 @@ static void __list_it_reset(void *it);								// 重置迭代器
 static void __list_it_destroy(void *it);							// 销毁迭代器
 
 static element_p __list_get_at(list_p list, list_pos_t pos);					// 获取当前位置的元素
-static void __list_del_at(list_p list, list_pos_t pos);					// 删除当前位置的元素
+static void __list_del_at(list_p list, list_pos_p pos);					// 删除当前位置的元素
 static void __list_append(list_p list, element_p ele);						// 在最后添加元素
 
 Container list_create(ElementType etype, ListType ltype, CmpFunc cmpfunc)
@@ -162,7 +162,7 @@ int list_destroy(Container list)
 			__linkedlist_removeall((linkedlist_p)l->list);
 		} else {
 			__arraylist_removeall((arraylist_p)l->list, l->size);
-			free(((arraylist_p)l)->elements);
+			free(((arraylist_p)l->list)->elements);
 		}
 		free(l->list);
 		l->size = 0;
@@ -474,7 +474,7 @@ Element list_queuehead(Container list)
 Iterator list_iterator(Container list, int dir)
 {
 	list_it_p it = NULL;
-	if (IS_VALID_LIST(list) && ((list_p)list->container)->size > 0) {
+	if (IS_VALID_LIST(list)) {
 		list_p l = (list_p)list->container;
 		pthread_mutex_lock(&l->mut);
 		it = __list_iterator(l, dir);
@@ -497,8 +497,8 @@ void list_plus(Container list1, Container list2)
 		else
 			pos.index = 0;
 		element_p ele;
-		while ((ele = __list_get_at(list2, pos))) {
-			__list_append(list1, ele);
+		while ((ele = __list_get_at(l2, pos))) {
+			__list_append(l1, ele);
 			if (l2->ltype == LinkedList)
 				pos.node = pos.node->next;
 			else
@@ -524,14 +524,14 @@ void list_minus(Container list1, Container list2)
 			pos.index = 0;
 		element_p ele;
 		int ex;
-		while ((ele = __list_get_at(list1, pos))) {
+		while ((ele = __list_get_at(l1, pos))) {
 			if (l2->ltype == LinkedList)
 				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			else
 				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
-			if (ex != -1)
-				__list_del_at(list1, pos);
-			else {
+			if (ex != -1) {
+				__list_del_at(l1, &pos);
+			} else {
 				if (l1->ltype == LinkedList)
 					pos.node = pos.node->next;
 				else
@@ -558,13 +558,13 @@ void list_retain(Container list1, Container list2)
 			pos.index = 0;
 		element_p ele;
 		int ex;
-		while ((ele = __list_get_at(list1, pos))) {
+		while ((ele = __list_get_at(l1, pos))) {
 			if (l2->ltype == LinkedList)
 				ex = __linkedlist_search((linkedlist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			else
 				ex = __arraylist_search((arraylist_p)l2->list, 0, Forward, l2->size, ele, l2->cmpfunc);
 			if (ex == -1)
-				__list_del_at(list1, pos);
+				__list_del_at(l1, &pos);
 			else {
 				if (l1->ltype == LinkedList)
 					pos.node = pos.node->next;
@@ -574,6 +574,8 @@ void list_retain(Container list1, Container list2)
 		}
 		pthread_mutex_unlock(&l1->mut);
 		pthread_mutex_unlock(&l2->mut);
+	} else {
+		list_removeall(list1);
 	}
 }
 
@@ -898,9 +900,9 @@ static int __arraylist_ins(arraylist_p al, size_t size, size_t index, element_p 
 	int ret = -1;
 	if (size <  al->capacity || __arraylist_expand(al) == 0) {
 		size_t i;
-		for (size_t i = size; i > index; i--)
+		for (i = size; i > index; i--)
 			al->elements[i] = al->elements[i - 1];
-		al->elements[i] = ele;
+		al->elements[index] = ele;
 		ret = 0;
 	}
 	return ret;
@@ -962,7 +964,7 @@ static int __linkedlist_search(linkedlist_p ll, size_t from, int dir, size_t siz
 static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size, element_p ele, CmpFunc cmpfunc)
 {
 	int pos = from;
-	while (cmpfunc(al->elements[pos]->value, ele->value, al->elements[pos]->len, ele->len) && pos >= 0 && pos < size)
+	while (pos >= 0 && pos < size && cmpfunc(al->elements[pos]->value, ele->value, al->elements[pos]->len, ele->len))
 		if (dir == Reverse)
 			pos--;
 		else
@@ -1024,7 +1026,7 @@ static void __linkedlist_quicksort(ll_node_p left, ll_node_p right, int order, C
  * @param cmpfunc
  * 	比较函数
  */
-static void __arraylist_quicksort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc)
+static void __arraylist_quicksort(element_p *a, int left, int right, int order, CmpFunc cmpfunc)
 {
 	if(left >= right)
 		return;
@@ -1088,7 +1090,7 @@ static void __linkedlist_insertsort(ll_node_p left, ll_node_p right, int order, 
  * @param cmpfunc
  * 	比较函数
  */
-static void __arraylist_insertsort(element_p *a, size_t left, size_t right, int order, CmpFunc cmpfunc)
+static void __arraylist_insertsort(element_p *a, int left, int right, int order, CmpFunc cmpfunc)
 {
 	int i, j;
 	for (i = left + 1; i <= right; i++) {
@@ -1391,18 +1393,18 @@ static element_p __list_get_at(list_p list, list_pos_t pos)
  * @param pos
  * 	位置
  */
-static void __list_del_at(list_p list, list_pos_t pos)
+static void __list_del_at(list_p list, list_pos_p pos)
 {
 	if (list->ltype == LinkedList) {
-		ll_node_p n = pos.node;
-		pos.node = pos.node->next;
+		ll_node_p n = pos->node;
+		pos->node = pos->node->next;
 		__linkedlist_node_plugout((linkedlist_p)list->list, n);
 		__linkedlist_node_destroy(n);
 	} else {
 		element_p *a = ((arraylist_p)list->list)->elements;
-		__element_destroy(a[pos.index]);
-		for (int i = pos.index + 1; i < list->size; i++)
-			a[p - 1] = a[p];
+		__element_destroy(a[pos->index]);
+		for (int i = pos->index + 1; i < list->size; i++)
+			a[i - 1] = a[i];
 	}
 	list->size--;
 	list->changes++;

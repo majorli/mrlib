@@ -94,9 +94,14 @@ typedef enum {
 typedef void *Element;
 
 /**
- * 获取元素的真实值，例如: struct NODE s = VALUEOF(element, struct NODE);
+ * 获取数值类型元素的真实值，例如: struct NODE s = VALUEOF(element, int);
  */
 #define VALUEOF(element, type) (*(type *)(element))
+
+/**
+ * 获取指针类型元素的真实值，例如: String s = POINTOF(element, char);
+ */
+#define POINTOF(element, type) ((type *)(element))
 
 /**
  * 元素比较函数的类型定义，四个参数依次为元素1的值, 元素2的值, 元素1的长度, 元素2的长度

@@ -9,7 +9,7 @@
  * 列表容器可以存入重复元素（元素值相等）和空元素（元素值为NULL或元素长度为0），元素默认比较时，元素值为NULL的空元素会认为比元素值不为NULL但元素长度为0的元素更小
  * 列表容器是强类型容器，在创建时必须指定一种元素类型，表内只能存取相同类型的元素，也可以使用object类型以实现多类型容器
  *
- * 2.0.0, 李斌, 2016/03/25
+ * 2.0.1, 李斌, 2016/03/28
  */
 
 #ifndef MR_LIST_H
@@ -349,7 +349,7 @@ extern void list_plus(Container list1, Container list2);
 extern void list_minus(Container list1, Container list2);
 
 /**
- * @brief 从list1中删除所有在list2中不存在的元素，两个列表的元素数据类型不同时不做任何删除
+ * @brief 从list1中删除所有在list2中不存在的元素，两个列表的元素数据类型不同或list2为空集合时list1将被清空
  *
  * @param list1
  * 	列表1
