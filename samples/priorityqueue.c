@@ -64,7 +64,8 @@ void cont(void)
 int main(void)
 {
 	printf("Create a priority queue...");
-	pq = pq_create(Min_Priority, integer, NULL);
+	//pq = pq_create(Min_Priority, integer, NULL);
+	pq = pq_create(Max_Priority, integer, NULL);
 	printf("OK!\n");
 	show();
 	cont();

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <pthread.h>
+#include <stdio.h>
 
 #include "mr_pqueue.h"
 #include "private_element.h"
@@ -18,6 +19,7 @@
  */
 typedef struct {
 	int priority;
+	size_t order;
 	element_p element;
 } pq_node_t, *pq_node_p;
 
@@ -31,20 +33,21 @@ typedef struct {
 	CmpFunc cmpfunc;
 	size_t capacity;
 	size_t size;
+	size_t order;
 	pthread_mutex_t mut;
 } pq_t, *pq_p;
 
-static pq_node_p __pq_node_create(Element ele, ElementType type, size_t len, int priority);	// 创建一个节点
-static void __pq_node_destroy(pq_node_p node);							// 销毁一个节点
+static pq_node_p __pq_node_create(Element ele, ElementType type, size_t len, int priority, size_t order);	// 创建一个节点
+static void __pq_node_destroy(pq_node_p node);									// 销毁一个节点
 
-static void __pq_removeall(pq_p pq);								// 清空所有节点
+static void __pq_removeall(pq_p pq);										// 清空所有节点
 
-static int __pq_bubble_up(pq_p pq, int pos);							// pos位置的节点上浮
-static int __pq_bubble_dn(pq_p pq, int pos);							// pos位置的节点下沉
+static int __pq_bubble_up(pq_p pq, int pos);									// pos位置的节点上浮
+static int __pq_bubble_dn(pq_p pq, int pos);									// pos位置的节点下沉
 
-static int __pq_expand(pq_p pq);								// 扩展队列的容量
+static int __pq_expand(pq_p pq);										// 扩展队列的容量
 
-static int __pq_change_pri(pq_p pq, int pos, int priority);					// 修改节点的优先级
+static int __pq_change_pri(pq_p pq, int pos, int priority);							// 修改节点的优先级
 
 Container pq_create(PriorityType ptype, ElementType etype, CmpFunc cmpfunc)
 {
@@ -68,6 +71,7 @@ Container pq_create(PriorityType ptype, ElementType etype, CmpFunc cmpfunc)
 	q->cmpfunc = cmpfunc ? cmpfunc : __default_cmpfunc(etype);
 	q->capacity = PQ_INIT_CAPA;
 	q->size = 0;
+	q->order = 0;
 	pthread_mutex_init(&q->mut, NULL);
 	pq->container = q;
 	pq->type = PriorityQueue;
@@ -83,6 +87,7 @@ int pq_destroy(Container pq)
 		__pq_removeall(q);
 		free(q->queue);
 		q->size = 0;
+		q->order = 0;
 		pthread_mutex_unlock(&q->mut);
 		pthread_mutex_destroy(&q->mut);
 		free(q);
@@ -106,7 +111,7 @@ int pq_enqueue(Container pq, Element ele, ElementType type, size_t len, int prio
 {
 	int pos = -1;
 	pq_node_p node = NULL;
-	if (IS_VALID_PQ(pq) && ((pq_p)pq->container)->etype == type && (node = __pq_node_create(ele, type, len, priority))) {
+	if (IS_VALID_PQ(pq) && ((pq_p)pq->container)->etype == type && (node = __pq_node_create(ele, type, len, priority, ((pq_p)pq->container)->order))) {
 		pq_p q = (pq_p)pq->container;
 		pthread_mutex_lock(&q->mut);
 		int pos;
@@ -114,6 +119,7 @@ int pq_enqueue(Container pq, Element ele, ElementType type, size_t len, int prio
 			pos = q->size;
 			q->queue[pos] = node;
 			q->size++;
+			q->order++;
 			__pq_bubble_up(q, pos);
 		} else {
 			__pq_node_destroy(node);
@@ -250,6 +256,7 @@ int pq_removeall(Container pq)
 		ret = q->size;
 		__pq_removeall(q);
 		q->size = 0;
+		q->order = 0;
 		pthread_mutex_unlock(&q->mut);
 	}
 	return ret;
@@ -266,11 +273,13 @@ int pq_removeall(Container pq)
  * 	元素长度
  * @param priority
  * 	优先级
+ * @param order
+ * 	入队顺序编号
  *
  * @return 
  * 	创建成功返回节点，失败返回NULL
  */
-static pq_node_p __pq_node_create(Element ele, ElementType type, size_t len, int priority)
+static pq_node_p __pq_node_create(Element ele, ElementType type, size_t len, int priority, size_t order)
 {
 	element_p e = __element_create(ele, type, len);
 	if (!e)
@@ -282,6 +291,7 @@ static pq_node_p __pq_node_create(Element ele, ElementType type, size_t len, int
 	}
 	node->element = e;
 	node->priority = priority;
+	node->order = order;
 	return node;
 }
 
@@ -359,8 +369,16 @@ static int __pq_bubble_dn(pq_p pq, int pos)
 	int left, right, child;
 	while ((left = PQ_LEFT(slot)) < pq->size) {
 		right = PQ_RIGHT(slot);
-		child = right >= pq->size ? left : (pq->ptype == Min_Priority ? pq->queue[right]->priority < pq->queue[left]->priority : pq->queue[right]->priority > pq->queue[left]->priority) ? right : left;
-		if (pq->ptype == Min_Priority ? key->priority < pq->queue[child]->priority : key->priority > pq->queue[child]->priority)
+		if (right >= pq->size)
+			child = left;
+		else if (pq->queue[right]->priority < pq->queue[left]->priority)
+			child = pq->ptype == Min_Priority ? right : left;
+		else if (pq->queue[right]->priority > pq->queue[left]->priority)
+			child = pq->ptype == Min_Priority ? left : right;
+		else
+			child = pq->queue[left]->order < pq->queue[right]->order ? left : right;
+		if ((pq->ptype == Min_Priority ? key->priority < pq->queue[child]->priority : key->priority > pq->queue[child]->priority) ||
+				(key->priority == pq->queue[child]->priority && key->order < pq->queue[child]->order))
 			break;
 		pq->queue[slot] = pq->queue[child];
 		slot = child;

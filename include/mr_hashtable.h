@@ -12,4 +12,18 @@
 
 #include "mr_common.h"
 
+extern Container hash_create(void);
+
+extern int hash_destroy(Container hash);
+
+extern int hash_register(Container hash, Element ele, ElementType type, size_t len);
+
+extern int hash_contains(Container hash, Element ele, ElementType type, size_t len);
+
+extern int hash_remove(Container hash, Element ele, ElementType type, size_t len);
+
+extern int hash_removeall(Container hash);
+
+extern Iterator hash_iterator(Container hash);
+
 #endif
