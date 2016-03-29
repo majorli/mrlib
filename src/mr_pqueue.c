@@ -39,10 +39,12 @@ static void __pq_node_destroy(pq_node_p node);							// 销毁一个节点
 
 static void __pq_removeall(pq_p pq);								// 清空所有节点
 
-static void __pq_bubble_up(pq_p pq, int pos);							// pos位置的节点上浮
-static void __pq_bubble_dn(pq_p pq, int pos);							// pos位置的节点下沉
+static int __pq_bubble_up(pq_p pq, int pos);							// pos位置的节点上浮
+static int __pq_bubble_dn(pq_p pq, int pos);							// pos位置的节点下沉
 
 static int __pq_expand(pq_p pq);								// 扩展队列的容量
+
+static int __pq_change_pri(pq_p pq, int pos, int priority);					// 修改节点的优先级
 
 Container pq_create(PriorityType ptype, ElementType etype, CmpFunc cmpfunc)
 {
@@ -151,8 +153,24 @@ Element pq_queuehead(Container pq, int *priority)
 	if (IS_VALID_PQ(pq) && ((pq_p)pq->container)->size > 0) {
 		pq_p q = (pq_p)pq->container;
 		pthread_mutex_lock(&q->mut);
-		if ((e = __element_clone_value(q->queue[0]->element))
+		if ((e = __element_clone_value(q->queue[0]->element)))
 			p = q->queue[0]->priority;
+		pthread_mutex_unlock(&q->mut);
+	}
+	if (priority)
+		*priority = p;
+	return e;
+}
+
+Element pq_get(Container pq, int index, int *priority)
+{
+	Element e = NULL;
+	int p = -1;
+	if (IS_VALID_PQ(pq) && index >= 0 && index < ((pq_p)pq->container)->size) {
+		pq_p q = (pq_p)pq->container;
+		pthread_mutex_lock(&q->mut);
+		if ((e = __element_clone_value(q->queue[index]->element)))
+			p = q->queue[index]->priority;
 		pthread_mutex_unlock(&q->mut);
 	}
 	if (priority)
@@ -162,22 +180,65 @@ Element pq_queuehead(Container pq, int *priority)
 
 int pq_contains(Container pq, Element ele, ElementType type, size_t len)
 {
-	return -1;
+	return pq_search(pq, ele, type, len) != -1;
 }
 
 int pq_search(Container pq, Element ele, ElementType type, size_t len)
 {
-	return -1;
+	int ret = -1;
+	element_p e;
+	if (IS_VALID_PQ(pq) && ((pq_p)pq->container)->size > 0 && ((pq_p)pq->container)->etype == type && (e = __element_create(ele, type, len))) {
+		pq_p q = (pq_p)pq->container;
+		pthread_mutex_lock(&q->mut);
+		int i;
+		element_p n;
+		for (i = 0; i < q->size; i++) {
+			n = q->queue[i]->element;
+			if (q->cmpfunc(n->value, e->value, n->len, e->len) == 0) {
+				ret = i;
+				break;
+			}
+		}
+		pthread_mutex_unlock(&q->mut);
+	}
+	return ret;
 }
 
 int pq_change_pri_at(Container pq, int index, int priority)
 {
-	return -1;
+	int ret = -1;
+	if (IS_VALID_PQ(pq)) {
+		pq_p q = (pq_p)pq->container;
+		pthread_mutex_lock(&q->mut);
+		ret = __pq_change_pri(q, index, priority);
+		pthread_mutex_unlock(&q->mut);
+	}
+	return ret;
 }
 
 int pq_change_pri(Container pq, Element ele, ElementType type, size_t len, int priority)
 {
-	return -1;
+	int ret = -1;
+	element_p e;
+	if (IS_VALID_PQ(pq) && (e = __element_create(ele, type, len))) {
+		pq_p q = (pq_p)pq->container;
+		pthread_mutex_lock(&q->mut);
+		ret = 0;
+		element_p n;
+		int i = 0, j;
+		while (i < q->size) {
+			n = q->queue[i]->element;
+			j = i;
+			if (q->queue[i]->priority != priority && q->cmpfunc(n->value, e->value, n->len, e->len) == 0) {
+				j = __pq_change_pri(q, i, priority);
+				ret++;
+			}
+			if (j <= i)
+				i++;
+		}
+		pthread_mutex_unlock(&q->mut);
+	}
+	return ret;
 }
 
 int pq_removeall(Container pq)
@@ -256,11 +317,14 @@ static void __pq_removeall(pq_p pq)
  * 	优先级队列
  * @param pos
  * 	要上浮的节点位置
+ *
+ * @return 
+ * 	上浮后的新索引值
  */
-static void __pq_bubble_up(pq_p pq, int pos)
+static int __pq_bubble_up(pq_p pq, int pos)
 {
 	if (pos < 0 || pos >= pq->size)
-		return;
+		return pos;
 	pq_node_p key = pq->queue[pos];
 	int slot = pos;
 	int parent;
@@ -272,6 +336,7 @@ static void __pq_bubble_up(pq_p pq, int pos)
 		slot = parent;
 	}
 	pq->queue[slot] = key;
+	return slot;
 }
 
 /**
@@ -281,11 +346,14 @@ static void __pq_bubble_up(pq_p pq, int pos)
  * 	优先级队列
  * @param pos
  * 	要下沉的节点位置
+ *
+ * @return 
+ * 	下沉后的新索引值
  */
-static void __pq_bubble_dn(pq_p pq, int pos)
+static int __pq_bubble_dn(pq_p pq, int pos)
 {
 	if (pos < 0 || pos >= pq->size)
-		return;
+		return pos;
 	pq_node_p key = pq->queue[pos];
 	int slot = pos;
 	int left, right, child;
@@ -298,6 +366,7 @@ static void __pq_bubble_dn(pq_p pq, int pos)
 		slot = child;
 	}
 	pq->queue[slot] = key;
+	return slot;
 }
 
 /**
@@ -321,5 +390,26 @@ static int __pq_expand(pq_p pq)
 		ret = 0;
 	}
 	return ret;
+}
+
+/**
+ * @brief 修改节点的优先级
+ *
+ * @param pq
+ * 	优先级队列
+ * @param pos
+ * 	待修改节点的索引值
+ * @param priority
+ * 	新的优先级
+ *
+ * @return 
+ * 	修改后的新索引值，索引值无效返回-1
+ */
+static int __pq_change_pri(pq_p pq, int pos, int priority)
+{
+	if (pos < 0 || pos >= pq->size)
+		return -1;
+	pq->queue[pos]->priority = priority;
+	return __pq_bubble_dn(pq, __pq_bubble_up(pq, pos));
 }
 

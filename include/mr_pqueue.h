@@ -7,7 +7,7 @@
  * 优先级队列是强类型容器，在创建时必须指定一种元素类型，表内只能存取相同类型的元素，也可以使用object类型以实现多类型容器
  * 优先级队列按优先级数值越大优先级越高还是越小优先级越高，分为大优先级队列和小优先级队列
  *
- * 2.0.0-DEV, 李斌, 2016/03/28
+ * 2.0.0, 李斌, 2016/03/29
  */
 #ifndef MR_PQUEUE_H
 #define MR_PQUEUE_H
@@ -111,9 +111,88 @@ extern Element pq_dequeue(Container pq, int *priority);
  * 	队首元素，空队列或执行失败时返回NULL
  */
 extern Element pq_queuehead(Container pq, int *priority);
+
+/**
+ * @brief 按索引获取队列元素
+ *
+ * @param pq
+ * 	优先级队列
+ * @param index
+ * 	位置索引值
+ * @param priority
+ * 	获取元素成功时写入元素的优先级，失败时置为-1，不需要获取优先级时可以传入NULL
+ *
+ * @return 
+ * 	位于index位置的元素值，index无效或队列无效或访问失败时返回NULL
+ */
+extern Element pq_get(Container pq, int index, int *priority);
+
+/**
+ * @brief 判断一个元素是否在队列中存在
+ *
+ * @param pq
+ * 	优先级队列
+ * @param ele
+ * 	元素值
+ * @param type
+ * 	元素数据类型
+ * @param len
+ * 	元素长度
+ *
+ * @return 
+ * 	元素存在返回1，不存在或查找失败返回0
+ */
 extern int pq_contains(Container pq, Element ele, ElementType type, size_t len);
+
+/**
+ * @brief 搜索元素，返回索引值，该索引值为元素在队列中的实际位置索引，如果队列元素发生变化该索引值所指的元素可能发生改变，结果无法定义
+ *
+ * @param pq
+ * 	优先级队列
+ * @param ele
+ * 	元素值
+ * @param type
+ * 	元素数据类型
+ * @param len
+ * 	元素长度
+ *
+ * @return 
+ * 	元素找到返回索引值，不存在或查找失败返回-1
+ */
 extern int pq_search(Container pq, Element ele, ElementType type, size_t len);
+
+/**
+ * @brief 修改指定位置的元素的优先级，修改完成后该元素的索引值可能发生变化，原索引值将无效
+ *
+ * @param pq
+ * 	优先级队列
+ * @param index
+ * 	元素所在索引值
+ * @param priority
+ * 	新的优先级别
+ *
+ * @return 
+ * 	修改成功返回元素的新索引值，失败返回-1
+ */
 extern int pq_change_pri_at(Container pq, int index, int priority);
+
+/**
+ * @brief 搜索元素并将搜索到的所有元素的优先级统一调整，该函数执行的时间开销比较大
+ *
+ * @param pq
+ * 	优先级队列
+ * @param ele
+ * 	元素值
+ * @param type
+ * 	元素数据类型
+ * @param len
+ * 	元素长度
+ * @param priority
+ * 	新的优先级别
+ *
+ * @return 
+ * 	修改了优先级的元素数量，发生错误返回-1
+ */
 extern int pq_change_pri(Container pq, Element ele, ElementType type, size_t len, int priority);
 
 /**
