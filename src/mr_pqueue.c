@@ -143,6 +143,8 @@ Element pq_dequeue(Container pq, int *priority)
 			if (q->size > 0) {
 				q->queue[0] = q->queue[q->size];
 				__pq_bubble_dn(q, 0);
+			} else {
+				q->order = 0;
 			}
 		}
 		pthread_mutex_unlock(&q->mut);
