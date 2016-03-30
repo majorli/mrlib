@@ -49,7 +49,7 @@ typedef void *Element;
 ```
 - 元素存入容器时进行一次完整复制，副本及其长度保存在容器之中，存入后对原元素的修改不影响容器中的副本
 	- 元素存入容器时需要提供容器、元素首地址、元素类型、元素长度四个参数
-	- 当元素类型为integer, real时，元素长度参数不起作用
+	- 当元素类型为integer, real时，元素长度参数应使用sizeof(实际类型)来确定
 	- 当元素类型为string时，元素长度一般为strlen(string)，也可以用元素长度限定存入容器的字符串的最大长度，即前len个字符，中文字符串要注意汉字截断问题
 	- 当元素类型为object时，元素长度应为sizeof(object)
 	- 例如集合容器的添加元素函数：`void set_add(Set set, Element element, ElementType type, size_t len);`
@@ -58,6 +58,7 @@ typedef void *Element;
 - 容器在读取元素时，返回元素的一个完整副本，修改这个返回的元素不会影响容器中的元素，使用完毕后必须使用`free()`函数进行销毁
 - 容器元素可以通过比较函数来进行比较，元素比较函数比较两个元素的大小，第一个元素大于第二个元素时返回一个小于0的整数，反之返回一个大于0的整数，相等时返回0
 - 元素比较函数定义了指针类型，客户程序可以指定自定义的比较函数
+- ***注意：float和double作为实数类型数据时，在创建元素时转换为long double的过程中因为精度调整可能造成无法预期的误差，且每次误差可能并不相同，这会导致此后在元素比较时发生错误，因此应该尽量使用long double类型来表示浮点数***
 ```
 typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 ```
@@ -74,7 +75,7 @@ typedef int (*CmpFunc)(const Element, const Element, size_t, size_t);
 - 迭代接口（以集合容器的迭代器为例）：
 	- 获取容器的迭代器
 	```
-	Iterator it = set_iterator(Container_p container, IterateDirection dir);	// 部分容器可能不支持反向迭代，对这类容器dir值无意义
+	Iterator it = set_iterator(Container_p container, IterateDirection dir);	// 部分容器可能不支持反向迭代
 	```
 	- 迭代读取元素
 	```
