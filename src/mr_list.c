@@ -987,7 +987,7 @@ static int __arraylist_search(arraylist_p al, size_t from, int dir, size_t size,
  */
 static void __linkedlist_quicksort(ll_node_p left, ll_node_p right, int order, CmpFunc cmpfunc)
 {
-	if(left == right)
+	if (left == right)
 		return;
 	ll_node_p i = left;
 	ll_node_p j = right;

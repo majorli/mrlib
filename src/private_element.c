@@ -23,29 +23,17 @@ element_p __element_create(Element value, ElementType type, size_t len)
 	if ((e = (element_p)malloc(sizeof(element_t)))) {
 		if (value && len) {
 			e->type = type;
+			e->len = type == string ? len + 1 : len;
+			e->value = malloc(e->len);
 			switch (type) {
 				case integer:
-					e->value = malloc(sizeof(Integer));
-					memset(e->value, 0, sizeof(Integer));
-					memcpy(e->value, value, len);
-					e->len = sizeof(Integer);
-					break;
 				case real:
-					e->value = malloc(sizeof(Real));
-					memset(e->value, 0, sizeof(Integer));
+				case object:
 					memcpy(e->value, value, len);
-					e->len = sizeof(Real);
 					break;
 				case string:
-					e->value = malloc(len + 1);
-					e->len = len + 1;
 					strncpy(e->value, value, len);
 					*(char *)(e->value + len) = '\0';
-					break;
-				case object:
-					e->value = malloc(len);
-					e->len = len;
-					memcpy(e->value, value, len);
 					break;
 			}
 		} else {

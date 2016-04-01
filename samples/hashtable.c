@@ -123,28 +123,28 @@ int main(void)
 	cont();
 
 	printf("Sample 4: elements of real number\n");
-	long double u[] = { 3.14159265359, 1.41421356237, 2.71828182846, 1.61803398875 };
+	float u[] = { 3.14159265359, 1.41421356237, 2.71828182846, 1.61803398875 };
 	for (i = 0; i < 4; i++)
-		if (hash_register(hashtable, &u[i], real, sizeof(long double)) == 0)
-			printf("add %14.12Lf success\n", u[i]);
+		if (hash_register(hashtable, &u[i], real, sizeof(float)) == 0)
+			printf("add %14.12f success\n", u[i]);
 		else
-			printf("add %14.12Lf failed\n", u[i]);
+			printf("add %14.12f failed\n", u[i]);
 	it_reset(iterator);
 	while ((e = it_next(iterator))) {
-		printf("%14.12Lf, ", VALUEOF(e, long double));
+		printf("%14.12f, ", VALUEOF(e, float));
 		free(e);
 	}
 	printf("\n");
 	cont();
 
 	for (i = 0; i < 4; i++)
-		if (hash_register(hashtable, &u[i], real, sizeof(long double)) == 0)
-			printf("add %14.12Lf success\n", u[i]);
+		if (hash_register(hashtable, &u[i], real, sizeof(float)) == 0)
+			printf("add %14.12f success\n", u[i]);
 		else
-			printf("add %14.12Lf failed\n", u[i]);
+			printf("add %14.12f failed\n", u[i]);
 	it_reset(iterator);
 	while ((e = it_next(iterator))) {
-		printf("%14.12Lf, ", VALUEOF(e, long double));
+		printf("%14.12f, ", VALUEOF(e, float));
 		free(e);
 	}
 	printf("\n");
@@ -152,7 +152,7 @@ int main(void)
 
 	printf("clear hashtable\n");
 	for (i = 0; i < 4; i++)
-		printf("remove %14.12Lf %s\n", u[i], hash_remove(hashtable, &u[i], real, sizeof(long double)) == 0 ? "failed!" : "success!");
+		printf("remove %14.12f %s\n", u[i], hash_remove(hashtable, &u[i], real, sizeof(float)) == 0 ? "failed!" : "success!");
 	show();
 	cont();
 
